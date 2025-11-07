@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "107659324569",
+    "project_id": "spot-b-leaf",
+    "storage_bucket": "spot-b-leaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:107659324569:android:4ecde280d5c34d6f5a1c08",
+        "android_client_info": {
+          "package_name": "com.example.fyp1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAroo0a9zJbgvlrjwSB9cq99FLz_6Dkx_M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
