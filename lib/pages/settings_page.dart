@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'welcome_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -176,6 +178,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildProfileCard() {
+    // Get current user from Firebase
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? 'User';
+    final email = user?.email ?? 'No email';
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -200,31 +207,37 @@ class _SettingsPageState extends State<SettingsPage> {
                   color: Colors.green[100],
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.person,
-                  size: 32,
-                  color: Colors.green[600],
+                child: Center(
+                  child: Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'John Farmer',
-                      style: TextStyle(
+                      displayName,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'john.farmer@email.com',
-                      style: TextStyle(
+                      email,
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -454,8 +467,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              _showSnackBar('Logged out successfully');
+              Navigator.pop(context); // Close dialog
+              // Navigate to welcome page and clear all previous routes
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const WelcomePage()),
+                (route) => false,
+              );
             },
             child: Text(
               'Log Out',

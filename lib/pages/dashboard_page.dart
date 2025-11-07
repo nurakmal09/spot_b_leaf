@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import '../widgets/bottom_nav_bar.dart';
 import 'settings_page.dart';
 
+
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
