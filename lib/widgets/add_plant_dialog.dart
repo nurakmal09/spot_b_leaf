@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../auth.dart';
 import 'plant_added_success_dialog.dart';
 
 class AddPlantDialog extends StatefulWidget {
@@ -14,21 +16,170 @@ class AddPlantDialog extends StatefulWidget {
 }
 
 class _AddPlantDialogState extends State<AddPlantDialog> {
+  final Auth _auth = Auth();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   final plantIdController = TextEditingController();
   final sectionController = TextEditingController();
   final rowController = TextEditingController();
-  final plantAgeController = TextEditingController();
   final notesController = TextEditingController();
+  DateTime? selectedPlantingDate;
   String selectedStatus = 'Healthy';
+  bool _isSaving = false;
 
   @override
   void dispose() {
     plantIdController.dispose();
     sectionController.dispose();
     rowController.dispose();
-    plantAgeController.dispose();
     notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectPlantingDate() async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: selectedPlantingDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.green[600]!,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      if (!mounted) return;
+      
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(selectedPlantingDate ?? DateTime.now()),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: Colors.green[600]!,
+                onPrimary: Colors.white,
+                onSurface: Colors.black,
+              ),
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          selectedPlantingDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _savePlantToFirestore() async {
+    // Validate required fields
+    if (plantIdController.text.trim().isEmpty ||
+        sectionController.text.trim().isEmpty ||
+        rowController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields (Plant ID, Section, Row)'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final user = _auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please sign in to add plants'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      // Parse section and row to integers if possible
+      final section = int.tryParse(sectionController.text.trim()) ?? 1;
+      final row = int.tryParse(rowController.text.trim()) ?? 1;
+      
+      // Convert status to array format matching Firestore schema
+      List<String> statusArray = [];
+      if (selectedStatus == 'Healthy') {
+        statusArray = ['healthy'];
+      } else if (selectedStatus == 'Warning') {
+        statusArray = ['warning'];
+      } else if (selectedStatus == 'Diseased') {
+        statusArray = ['diseased'];
+      }
+
+      // Create plant document
+      await _firestore.collection('plant').add({
+        'userId': user.uid,
+        'field_name': widget.fieldName,
+        'plant_id': plantIdController.text.trim(),
+        'section': section,
+        'row': row,
+        'day_first_plant': selectedPlantingDate != null 
+            ? Timestamp.fromDate(selectedPlantingDate!) 
+            : FieldValue.serverTimestamp(),
+        'notes': notesController.text.trim(),
+        'status': statusArray,
+      });
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+        
+        // Close the add plant dialog
+        Navigator.pop(context);
+        
+        // Show success dialog
+        showDialog(
+          context: context,
+          builder: (context) => PlantAddedSuccessDialog(
+            plantId: plantIdController.text.trim(),
+            section: sectionController.text.trim(),
+            row: rowController.text.trim(),
+            age: selectedPlantingDate != null 
+                ? '${selectedPlantingDate!.day}/${selectedPlantingDate!.month}/${selectedPlantingDate!.year}'
+                : 'Not specified',
+            status: selectedStatus,
+            fieldName: widget.fieldName,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding plant: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -122,8 +273,9 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
                               const SizedBox(height: 8),
                               _buildTextField(
                                 controller: sectionController,
-                                hintText: 'e.g., A, B',
+                                hintText: 'e.g., 1, 2, 3',
                                 icon: Icons.grid_view,
+                                keyboardType: TextInputType.number,
                               ),
                             ],
                           ),
@@ -140,6 +292,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
                                 controller: rowController,
                                 hintText: 'e.g., 1, 2, 3',
                                 icon: Icons.view_headline,
+                                keyboardType: TextInputType.number,
                               ),
                             ],
                           ),
@@ -148,13 +301,38 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Plant Age Field
-                    _buildLabel('Plant Age *'),
+                    // Day Planted Field
+                    _buildLabel('Day Planted *'),
                     const SizedBox(height: 8),
-                    _buildTextField(
-                      controller: plantAgeController,
-                      hintText: 'e.g., 6 months, 1 year',
-                      icon: Icons.calendar_today,
+                    InkWell(
+                      onTap: _selectPlantingDate,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                selectedPlantingDate != null
+                                    ? '${selectedPlantingDate!.day}/${selectedPlantingDate!.month}/${selectedPlantingDate!.year} at ${selectedPlantingDate!.hour.toString().padLeft(2, '0')}:${selectedPlantingDate!.minute.toString().padLeft(2, '0')}'
+                                    : 'Select date and time',
+                                style: TextStyle(
+                                  color: selectedPlantingDate != null 
+                                      ? Colors.black87 
+                                      : Colors.grey[400],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
 
@@ -234,25 +412,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Close the add plant dialog
-                        Navigator.pop(context);
-                        
-                        // Show success dialog
-                        showDialog(
-                          context: context,
-                          builder: (context) => PlantAddedSuccessDialog(
-                            plantId: plantIdController.text.isEmpty 
-                                ? 'n' 
-                                : plantIdController.text,
-                            section: sectionController.text,
-                            row: rowController.text,
-                            age: plantAgeController.text,
-                            status: selectedStatus,
-                            fieldName: widget.fieldName,
-                          ),
-                        );
-                      },
+                      onPressed: _isSaving ? null : _savePlantToFirestore,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green[600],
                         foregroundColor: Colors.white,
@@ -261,13 +421,22 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Add Plant',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Add Plant',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -312,9 +481,11 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
     required String hintText,
     required IconData icon,
     String? helperText,
+    TextInputType? keyboardType,
   }) {
     return TextField(
       controller: controller,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: TextStyle(color: Colors.grey[400]),
