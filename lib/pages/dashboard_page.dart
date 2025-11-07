@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'dart:math' as math;
+import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'settings_page.dart';
 
@@ -13,7 +16,70 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  final Auth _auth = Auth();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot>? _plantsSubscription;
+  
   DateTime selectedDate = DateTime.now();
+  
+  // Statistics from Firestore
+  int totalPlants = 0;
+  int healthyPlants = 0;
+  int diseasedPlants = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlantsFromFirestore();
+  }
+
+  @override
+  void dispose() {
+    _plantsSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Load all plants from Firestore and calculate statistics
+  void _loadPlantsFromFirestore() {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    _plantsSubscription = _firestore
+        .collection('plant')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      setState(() {
+        // Reset counts
+        totalPlants = 0;
+        healthyPlants = 0;
+        diseasedPlants = 0;
+
+        // Count plants by status
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final statusList = data['status'] as List<dynamic>?;
+          
+          totalPlants++;
+          
+          if (statusList != null && statusList.isNotEmpty) {
+            final statusStr = statusList[0].toString().toLowerCase();
+            if (statusStr == 'diseased') {
+              diseasedPlants++;
+            } else if (statusStr == 'healthy') {
+              healthyPlants++;
+            } else {
+              // Warning counts as healthy for now
+              healthyPlants++;
+            }
+          } else {
+            // If no status specified, count as healthy
+            healthyPlants++;
+          }
+        }
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +123,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           Text(
                             'Real-time monitoring',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 14,
                             ),
                           ),
@@ -125,7 +191,7 @@ class _DashboardPageState extends State<DashboardPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 4,
           ),
@@ -180,7 +246,7 @@ class _DashboardPageState extends State<DashboardPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             spreadRadius: 2,
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -199,7 +265,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text(
                     'Today\'s Weather',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
                     ),
                   ),
@@ -235,7 +301,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(
             'Partly Cloudy - Good for spraying',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
             ),
           ),
@@ -247,12 +313,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildWeatherDetail(IconData icon, String value) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.9), size: 18),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
         const SizedBox(width: 6),
         Text(
           value,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             fontSize: 13,
           ),
         ),
@@ -267,8 +333,17 @@ class _DashboardPageState extends State<DashboardPage> {
           child: _buildMetricCard(
             icon: Icons.eco,
             color: Colors.green,
-            value: '47',
+            value: totalPlants.toString(),
             label: 'Total Plants',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildMetricCard(
+            icon: Icons.check_circle,
+            color: Colors.green,
+            value: healthyPlants.toString(),
+            label: 'Healthy',
           ),
         ),
         const SizedBox(width: 12),
@@ -276,17 +351,8 @@ class _DashboardPageState extends State<DashboardPage> {
           child: _buildMetricCard(
             icon: Icons.warning,
             color: Colors.red,
-            value: '13',
+            value: diseasedPlants.toString(),
             label: 'Diseased',
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricCard(
-            icon: Icons.trending_up,
-            color: Colors.blue,
-            value: '+28%',
-            label: 'Disease Rate',
           ),
         ),
       ],
@@ -306,7 +372,7 @@ class _DashboardPageState extends State<DashboardPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 6,
           ),
@@ -317,7 +383,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -352,7 +418,7 @@ class _DashboardPageState extends State<DashboardPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 6,
           ),
@@ -375,8 +441,8 @@ class _DashboardPageState extends State<DashboardPage> {
               width: 200,
               child: CustomPaint(
                 painter: DonutChartPainter(
-                  healthy: 47 - 13,
-                  diseased: 13,
+                  healthy: healthyPlants,
+                  diseased: diseasedPlants,
                 ),
               ),
             ),
@@ -385,8 +451,20 @@ class _DashboardPageState extends State<DashboardPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildLegendItem(Colors.green, 'Healthy', '72%'),
-              _buildLegendItem(Colors.red, 'Diseased', '28%'),
+              _buildLegendItem(
+                Colors.green,
+                'Healthy',
+                totalPlants > 0 
+                    ? '${((healthyPlants / totalPlants) * 100).toStringAsFixed(0)}%'
+                    : '0%',
+              ),
+              _buildLegendItem(
+                Colors.red,
+                'Diseased',
+                totalPlants > 0
+                    ? '${((diseasedPlants / totalPlants) * 100).toStringAsFixed(0)}%'
+                    : '0%',
+              ),
             ],
           ),
         ],

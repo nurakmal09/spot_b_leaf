@@ -74,7 +74,7 @@ class _ScannerPageState extends State<ScannerPage> {
                       ),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -129,7 +129,7 @@ class _ScannerPageState extends State<ScannerPage> {
                     icon: const Icon(Icons.photo_library, size: 18),
                     label: const Text('Upload from Gallery'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.15),
+                      backgroundColor: Colors.white.withValues(alpha: 0.15),
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(
@@ -189,7 +189,7 @@ class _ScannerPageState extends State<ScannerPage> {
                                   isDiseaseMode ? Icons.eco : Icons.qr_code_scanner,
                                   size: 80,
                                   color: (isDiseaseMode ? Colors.green : Colors.blue)
-                                      .withOpacity(0.5),
+                                      .withValues(alpha: 0.5),
                                 ),
                               ),
                           ],
@@ -243,7 +243,7 @@ class _ScannerPageState extends State<ScannerPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.1),
+          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -315,7 +315,7 @@ class _ScannerPageState extends State<ScannerPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -451,7 +451,7 @@ class _ScannerPageState extends State<ScannerPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
