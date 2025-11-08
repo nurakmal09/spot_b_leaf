@@ -134,6 +134,10 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
         statusArray = ['diseased'];
       }
 
+      // Generate unique QR code ID
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final qrCodeId = '${user.uid}_${widget.fieldName}_${plantIdController.text.trim()}_$timestamp';
+
       // Create plant document
       await _firestore.collection('plant').add({
         'userId': user.uid,
@@ -146,6 +150,8 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
             : FieldValue.serverTimestamp(),
         'notes': notesController.text.trim(),
         'status': statusArray,
+        'qr_code_id': qrCodeId,
+        'created_at': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {

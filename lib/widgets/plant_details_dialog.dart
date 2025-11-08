@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:gal/gal.dart';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import '../pages/weekly_report_page.dart';
 
 class PlantDetailsDialog extends StatefulWidget {
@@ -240,10 +245,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          // TODO: Implement QR code generation
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('QR Code generation coming soon')),
-                          );
+                          _showQRCodeDialog(context);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.purple[600],
@@ -254,7 +256,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                           ),
                         ),
                         child: const Text(
-                          'Generate & View QR Code',
+                          'View QR Code',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -378,6 +380,270 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showQRCodeDialog(BuildContext context) {
+    final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
+    final qrCodeId = widget.plantData['qr_code_id'] as String? ?? widget.documentId;
+    final section = widget.plantData['section']?.toString() ?? 'N/A';
+    final row = widget.plantData['row']?.toString() ?? 'N/A';
+    final GlobalKey qrKey = GlobalKey();
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Plant QR Code',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple[700],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Plant ID: $plantId',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // QR Code with RepaintBoundary for capturing
+              RepaintBoundary(
+                key: qrKey,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.purple[100]!, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purple.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: QrImageView(
+                    data: qrCodeId,
+                    version: QrVersions.auto,
+                    size: 250,
+                    backgroundColor: Colors.white,
+                    errorCorrectionLevel: QrErrorCorrectLevel.H,
+                    embeddedImage: null,
+                    embeddedImageStyle: null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Plant Info
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildQRInfoRow('Plant ID', plantId),
+                    const SizedBox(height: 8),
+                    _buildQRInfoRow('Section', section),
+                    const SizedBox(height: 8),
+                    _buildQRInfoRow('Row', row),
+                    const SizedBox(height: 8),
+                    _buildQRInfoRow('Status', _getStatusText()),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Download Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _downloadQRCode(context, qrKey, plantId),
+                  icon: const Icon(Icons.download),
+                  label: const Text(
+                    'Download QR Code',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Instructions
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[100]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Scan this QR code to quickly access plant information',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadQRCode(BuildContext context, GlobalKey qrKey, String plantId) async {
+    try {
+      // Show loading indicator
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Saving QR Code...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Capture the QR code as an image
+      RenderRepaintBoundary boundary =
+          qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+      // Save to gallery using gal package
+      await Gal.putImageBytes(pngBytes, album: 'Plant QR Codes');
+
+      if (context.mounted) {
+        // Clear the loading message
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('QR Code saved to gallery!'),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        String errorMessage = 'Error saving QR code';
+        if (e is GalException) {
+          if (e.type == GalExceptionType.accessDenied) {
+            errorMessage = 'Storage permission denied. Please enable it in Settings.';
+          }
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildQRInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],

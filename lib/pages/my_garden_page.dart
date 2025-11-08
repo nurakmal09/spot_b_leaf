@@ -6,6 +6,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/add_plant_dialog.dart';
 import '../widgets/edit_field_dialog.dart';
 import '../widgets/plant_details_dialog.dart';
+import '../services/qr_migration_service.dart';
 import 'settings_page.dart';
 
 class MyGardenPage extends StatefulWidget {
@@ -18,8 +19,15 @@ class MyGardenPage extends StatefulWidget {
 class _MyGardenPageState extends State<MyGardenPage> {
   final Auth _auth = Auth();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final QRMigrationService _qrMigrationService = QRMigrationService();
   StreamSubscription<QuerySnapshot>? _fieldsSubscription;
   StreamSubscription<QuerySnapshot>? _plantsSubscription;
+  
+  // Scroll controllers for synchronized scrolling
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _headerScrollController = ScrollController();
+  final ScrollController _sidebarScrollController = ScrollController();
   
   DateTime selectedDate = DateTime.now();
   String selectedField = 'Field A';
@@ -46,12 +54,42 @@ class _MyGardenPageState extends State<MyGardenPage> {
     super.initState();
     _loadFieldsFromFirestore();
     _loadPlantsFromFirestore();
+    _runQRMigration();
+    
+    // Sync scroll controllers
+    _horizontalScrollController.addListener(() {
+      if (_headerScrollController.hasClients) {
+        _headerScrollController.jumpTo(_horizontalScrollController.offset);
+      }
+    });
+    
+    _verticalScrollController.addListener(() {
+      if (_sidebarScrollController.hasClients) {
+        _sidebarScrollController.jumpTo(_verticalScrollController.offset);
+      }
+    });
+  }
+
+  // Run QR code migration for existing plants
+  Future<void> _runQRMigration() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _qrMigrationService.runMigration(user.uid);
+    } catch (e) {
+      // Silently fail - migration is not critical for app functionality
+    }
   }
 
   @override
   void dispose() {
     _fieldsSubscription?.cancel();
     _plantsSubscription?.cancel();
+    _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
+    _headerScrollController.dispose();
+    _sidebarScrollController.dispose();
     super.dispose();
   }
 
@@ -327,9 +365,19 @@ class _MyGardenPageState extends State<MyGardenPage> {
                   children: [
                     // Date Selector
                     _buildDateSelector(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
-                    // Field Selector
+                    // "My Fields" Title
+                    const Text(
+                      'My Fields',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
                     // Field Selector (shows multiple fields, selectable and editable)
                     _buildFieldSelector(fieldData),
                     const SizedBox(height: 20),
@@ -446,7 +494,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: SizedBox(
-        height: 88,
+        height: 100, // Increased height to prevent overflow
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -492,7 +540,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
               },
               child: Container(
                 width: 200,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.green[50] : Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -505,8 +553,8 @@ class _MyGardenPageState extends State<MyGardenPage> {
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: Colors.green[100],
                         borderRadius: BorderRadius.circular(8),
@@ -514,7 +562,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
                       child: Center(
                         child: Text(
                           name.isNotEmpty ? name.substring(name.length - 1) : '?',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700]),
                         ),
                       ),
                     ),
@@ -523,15 +571,34 @@ class _MyGardenPageState extends State<MyGardenPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('${data['totalPlants']} plants • ${data['diseased']} diseased', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${data['totalPlants']} plants • ${data['diseased']} diseased',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.edit, size: 20),
+                      icon: const Icon(Icons.edit, size: 18),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
                       color: Colors.grey[700],
                       onPressed: () => _showEditFieldDialog(isNew: false, name: name),
                     ),
@@ -690,8 +757,67 @@ class _MyGardenPageState extends State<MyGardenPage> {
   }
 
   Widget _buildPlantGrid(List<PlantStatus> plants) {
+    // Get plant documents for the selected field
+    final fieldPlants = plantDocuments[selectedField] ?? [];
+    
+    if (fieldPlants.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.green[100]!,
+            width: 2,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.grass,
+                size: 64,
+                color: Colors.green[300],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No plants in this field yet',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Click "Add Plant" to start planting',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Grid dimensions: 50 sections × 50 rows
+    const int maxSections = 50;
+    const int maxRows = 50;
+
+    // Create a map for quick plant lookup by position
+    final Map<String, Map<String, dynamic>> plantPositions = {};
+    for (var plant in fieldPlants) {
+      final section = plant['section'] as int? ?? 1;
+      final row = plant['row'] as int? ?? 1;
+      final key = '${section}_$row';
+      plantPositions[key] = plant;
+    }
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 480, // Fixed height for the grid container
       decoration: BoxDecoration(
         color: Colors.green[50],
         borderRadius: BorderRadius.circular(16),
@@ -700,62 +826,211 @@ class _MyGardenPageState extends State<MyGardenPage> {
           width: 2,
         ),
       ),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.85,
-        ),
-        itemCount: plants.length,
-        itemBuilder: (context, index) {
-          return _buildPlantItem(index, plants[index]);
-        },
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Icon(Icons.grid_on, color: Colors.green[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Field Map (Pan to navigate)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green[800],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '50×50 grid',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green[800],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Scrollable grid with sticky headers
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Top row: corner + column headers
+                  Row(
+                    children: [
+                      // Corner box
+                      Container(
+                        width: 50,
+                        height: 30,
+                        color: Colors.green[100],
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.grid_on,
+                          size: 16,
+                          color: Colors.green[800],
+                        ),
+                      ),
+                      // Column headers (R1, R2, R3...)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: _headerScrollController,
+                          scrollDirection: Axis.horizontal,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Row(
+                            children: List.generate(maxRows, (index) {
+                              return Container(
+                                width: 60,
+                                height: 30,
+                                color: Colors.green[50],
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'R${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[800],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Main grid area
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Row headers (S1, S2, S3...)
+                        SingleChildScrollView(
+                          controller: _sidebarScrollController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Column(
+                            children: List.generate(maxSections, (sectionIndex) {
+                              final sectionNum = sectionIndex + 1;
+                              return Container(
+                                width: 50,
+                                height: 64, // Match cell height
+                                color: Colors.green[50],
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
+                                  'S$sectionNum',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[800],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                        // Scrollable grid content
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _verticalScrollController,
+                            child: SingleChildScrollView(
+                              controller: _horizontalScrollController,
+                              scrollDirection: Axis.horizontal,
+                              child: Column(
+                                children: List.generate(maxSections, (sectionIndex) {
+                                  final sectionNum = sectionIndex + 1;
+                                  return Row(
+                                    children: List.generate(maxRows, (rowIndex) {
+                                      final rowNum = rowIndex + 1;
+                                      final key = '${sectionNum}_$rowNum';
+                                      final plantData = plantPositions[key];
+                                      
+                                      return SizedBox(
+                                        width: 60,
+                                        height: 64,
+                                        child: _buildPlantCell(sectionNum, rowNum, plantData),
+                                      );
+                                    }),
+                                  );
+                                }),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPlantItem(int index, PlantStatus status) {
-    Color color;
-    switch (status) {
-      case PlantStatus.healthy:
-        color = Colors.green;
-        break;
-      case PlantStatus.warning:
-        color = Colors.orange;
-        break;
-      case PlantStatus.diseased:
+  Widget _buildPlantCell(int section, int row, Map<String, dynamic>? plantData) {
+    if (plantData == null) {
+      // Empty cell - show subtle grid lines
+      return Container(
+        height: 60,
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.green.withValues(alpha: 0.1),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
+    }
+
+    // Determine plant status and color
+    final statusList = plantData['status'] as List<dynamic>?;
+    String statusStr = 'healthy';
+    Color color = Colors.green;
+    
+    if (statusList != null && statusList.isNotEmpty) {
+      statusStr = statusList[0].toString().toLowerCase();
+      if (statusStr == 'diseased') {
         color = Colors.red;
-        break;
+      } else if (statusStr == 'warning') {
+        color = Colors.orange;
+      }
     }
 
     return GestureDetector(
       onTap: () {
-        // Get plant document data for this field
-        final fieldPlants = plantDocuments[selectedField];
-        if (fieldPlants != null && index < fieldPlants.length) {
-          final plantData = fieldPlants[index];
-          showDialog(
-            context: context,
-            builder: (context) => PlantDetailsDialog(
-              plantData: plantData,
-              documentId: plantData['documentId'] as String,
-            ),
-          );
-        }
+        showDialog(
+          context: context,
+          builder: (context) => PlantDetailsDialog(
+            plantData: plantData,
+            documentId: plantData['documentId'] as String,
+          ),
+        );
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Container(
-              constraints: const BoxConstraints(
-                maxWidth: 50,
-                maxHeight: 50,
-              ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -772,21 +1047,22 @@ class _MyGardenPageState extends State<MyGardenPage> {
                 child: Icon(
                   Icons.eco,
                   color: Colors.white,
-                  size: 20,
+                  size: 18,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            (index + 1).toString(),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 2),
+            Text(
+              plantData['plant_id'] as String? ?? '',
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

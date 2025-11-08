@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/weather_service.dart';
+import '../services/location_service.dart';
 import 'settings_page.dart';
 
 
@@ -18,6 +21,9 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final Auth _auth = Auth();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final WeatherService _weatherService = WeatherService();
+  final LocationService _locationService = LocationService();
+  
   StreamSubscription<QuerySnapshot>? _plantsSubscription;
   
   DateTime selectedDate = DateTime.now();
@@ -26,11 +32,20 @@ class _DashboardPageState extends State<DashboardPage> {
   int totalPlants = 0;
   int healthyPlants = 0;
   int diseasedPlants = 0;
+  
+  // Weather data
+  Map<String, dynamic>? currentWeather;
+  List<Map<String, dynamic>>? forecast;
+  double? uvIndex;
+  String? weatherRecommendation;
+  bool isLoadingWeather = true;
+  Position? currentPosition;
 
   @override
   void initState() {
     super.initState();
     _loadPlantsFromFirestore();
+    _loadWeatherData();
   }
 
   @override
@@ -79,6 +94,139 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       });
     });
+  }
+
+  // Load weather data from API
+  Future<void> _loadWeatherData() async {
+    if (!mounted) return;
+    
+    setState(() {
+      isLoadingWeather = true;
+    });
+
+    try {
+      // Get current location
+      final position = await _locationService.getCurrentLocation();
+      
+      if (position == null) {
+        if (!mounted) return;
+        setState(() {
+          isLoadingWeather = false;
+        });
+        return;
+      }
+
+      currentPosition = position;
+
+      // Fetch weather data
+      final weatherData = await _weatherService.getCurrentWeather(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (weatherData != null) {
+        currentWeather = _weatherService.parseWeatherData(weatherData);
+      }
+
+      // Fetch forecast
+      final forecastData = await _weatherService.getForecast(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (forecastData != null) {
+        forecast = _weatherService.parseForecastData(forecastData);
+      }
+
+      // Fetch UV index
+      final uvData = await _weatherService.getUVIndex(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (uvData != null) {
+        uvIndex = uvData['uvi'];
+      }
+
+      // Generate agricultural recommendation
+      if (currentWeather != null) {
+        weatherRecommendation = _weatherService.getAgricultureRecommendation(
+          currentWeather!,
+          uvIndex,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        isLoadingWeather = false;
+      });
+    } catch (e) {
+      print('Error loading weather: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoadingWeather = false;
+      });
+    }
+  }
+
+  // Load weather with default location (for testing)
+  Future<void> _loadWeatherWithDefaultLocation() async {
+    setState(() {
+      isLoadingWeather = true;
+    });
+
+    try {
+      // Use Kuala Lumpur as default location
+      const double defaultLat = 3.1319;
+      const double defaultLon = 101.6841;
+
+      // Fetch weather data
+      final weatherData = await _weatherService.getCurrentWeather(
+        defaultLat,
+        defaultLon,
+      );
+
+      if (weatherData != null) {
+        currentWeather = _weatherService.parseWeatherData(weatherData);
+      }
+
+      // Fetch forecast
+      final forecastData = await _weatherService.getForecast(
+        defaultLat,
+        defaultLon,
+      );
+
+      if (forecastData != null) {
+        forecast = _weatherService.parseForecastData(forecastData);
+      }
+
+      // Fetch UV index
+      final uvData = await _weatherService.getUVIndex(
+        defaultLat,
+        defaultLon,
+      );
+
+      if (uvData != null) {
+        uvIndex = uvData['uvi'];
+      }
+
+      // Generate agricultural recommendation
+      if (currentWeather != null) {
+        weatherRecommendation = _weatherService.getAgricultureRecommendation(
+          currentWeather!,
+          uvIndex,
+        );
+      }
+
+      setState(() {
+        isLoadingWeather = false;
+      });
+    } catch (e) {
+      print('Error loading weather: $e');
+      setState(() {
+        isLoadingWeather = false;
+      });
+    }
   }
 
   @override
@@ -235,6 +383,114 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildWeatherCard() {
+    if (isLoadingWeather) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue[500]!, Colors.blue[400]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.3),
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (currentWeather == null) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue[500]!, Colors.blue[400]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.3),
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.location_off, color: Colors.white, size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load weather',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please enable location services in your device settings',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _loadWeatherData,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.blue[600],
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await Geolocator.openLocationSettings();
+                  },
+                  icon: const Icon(Icons.settings, size: 18),
+                  label: const Text('Settings'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.9),
+                    foregroundColor: Colors.blue[600],
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'OR',
+              style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _loadWeatherWithDefaultLocation,
+              icon: const Icon(Icons.location_city, size: 18),
+              label: const Text('Use Demo Location (KL)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -256,53 +512,203 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Current weather
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentWeather!['cityName'] ?? 'Current Location',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      currentWeather!['description'].toString().toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${currentWeather!['temperature'].toStringAsFixed(1)}°C',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Feels like ${currentWeather!['feelsLike'].toStringAsFixed(1)}°C',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                _getWeatherIcon(currentWeather!['main']),
+                color: Colors.white,
+                size: 72,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          // Weather details grid
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildWeatherDetail(Icons.water_drop, '${currentWeather!['humidity']}%', 'Humidity'),
+                    _buildWeatherDetail(Icons.air, '${currentWeather!['windSpeed'].toStringAsFixed(1)} m/s', 'Wind'),
+                    if (uvIndex != null)
+                      _buildWeatherDetail(Icons.wb_sunny, uvIndex!.toStringAsFixed(1), 'UV Index'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildWeatherDetail(Icons.umbrella, '${currentWeather!['rain'].toStringAsFixed(1)} mm', 'Rain'),
+                    _buildWeatherDetail(Icons.compress, '${currentWeather!['pressure']} hPa', 'Pressure'),
+                    _buildWeatherDetail(Icons.cloud, '${currentWeather!['cloudiness']}%', 'Clouds'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Agricultural recommendation
+          if (weatherRecommendation != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Today\'s Weather',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '28°C',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
+                  const Icon(Icons.lightbulb_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      weatherRecommendation!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const Icon(
-                Icons.cloud,
+            ),
+          ],
+          
+          // 3-day forecast
+          if (forecast != null && forecast!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              '3-Day Forecast',
+              style: TextStyle(
                 color: Colors.white,
-                size: 64,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildWeatherDetail(Icons.water_drop, '75%'),
-              const SizedBox(width: 24),
-              _buildWeatherDetail(Icons.air, '12 km/h'),
-              const SizedBox(width: 24),
-              _buildWeatherDetail(Icons.thermostat, 'Humid'),
-            ],
-          ),
-          const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: forecast!.take(3).map((day) {
+                return _buildForecastDay(day);
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _getWeatherIcon(String condition) {
+    switch (condition.toLowerCase()) {
+      case 'clear':
+        return Icons.wb_sunny;
+      case 'clouds':
+        return Icons.cloud;
+      case 'rain':
+      case 'drizzle':
+        return Icons.water_drop;
+      case 'thunderstorm':
+        return Icons.flash_on;
+      case 'snow':
+        return Icons.ac_unit;
+      case 'mist':
+      case 'fog':
+        return Icons.cloud_queue;
+      default:
+        return Icons.wb_cloudy;
+    }
+  }
+
+  Widget _buildForecastDay(Map<String, dynamic> day) {
+    final date = day['date'] as DateTime;
+    final dayName = _getDayName(date.weekday);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
           Text(
-            'Partly Cloudy - Good for spraying',
+            dayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Icon(
+            _getWeatherIcon(day['description']),
+            color: Colors.white,
+            size: 24,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${day['tempMax'].toStringAsFixed(0)}°',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            '${day['tempMin'].toStringAsFixed(0)}°',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 12,
             ),
           ),
         ],
@@ -310,16 +716,29 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildWeatherDetail(IconData icon, String value) {
-    return Row(
+  String _getDayName(int weekday) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[weekday - 1];
+  }
+
+  Widget _buildWeatherDetail(IconData icon, String value, String label) {
+    return Column(
       children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
-        const SizedBox(width: 6),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 20),
+        const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 10,
           ),
         ),
       ],
