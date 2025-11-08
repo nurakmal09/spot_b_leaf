@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'plant_qr_code_dialog.dart';
 
 class PlantAddedSuccessDialog extends StatelessWidget {
   final String plantId;
@@ -91,27 +90,11 @@ class PlantAddedSuccessDialog extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Generate QR Code Button
+            // Done Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Close current dialog
-                  Navigator.pop(context);
-                  
-                  // Show QR code dialog
-                  showDialog(
-                    context: context,
-                    builder: (context) => PlantQRCodeDialog(
-                      plantId: plantId,
-                      section: section,
-                      row: row,
-                      age: age,
-                      status: status,
-                      fieldName: fieldName,
-                    ),
-                  );
-                },
+                onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[600],
                   foregroundColor: Colors.white,
@@ -121,30 +104,10 @@ class PlantAddedSuccessDialog extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Generate QR Code',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Done Button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
                   'Done',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

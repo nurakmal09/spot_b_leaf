@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/treatment_notes_dialog.dart';
+import '../auth.dart';
 import 'settings_page.dart';
 
 class TreatmentPage extends StatefulWidget {
@@ -12,6 +15,10 @@ class TreatmentPage extends StatefulWidget {
 }
 
 class _TreatmentPageState extends State<TreatmentPage> {
+  final Auth _auth = Auth();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot>? _notesSubscription;
+  
   // Store notes for each disease
   final Map<String, String> diseaseNotes = {
     'Panama Disease (Fusarium Wilt)': '',
@@ -20,6 +27,88 @@ class _TreatmentPageState extends State<TreatmentPage> {
     'Black Sigatoka': '',
     'Bract Mosaic Virus': '',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotesFromFirestore();
+  }
+
+  @override
+  void dispose() {
+    _notesSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Load notes from Firestore
+  void _loadNotesFromFirestore() {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // Listen to real-time updates from Firestore
+    _notesSubscription = _firestore
+        .collection('treatment_notes')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      setState(() {
+        // Clear existing notes first
+        diseaseNotes.updateAll((key, value) => '');
+        
+        // Load notes from Firestore
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final diseaseTitle = data['diseaseTitle'] as String?;
+          final notes = data['notes'] as String?;
+          
+          if (diseaseTitle != null && diseaseNotes.containsKey(diseaseTitle)) {
+            diseaseNotes[diseaseTitle] = notes ?? '';
+          }
+        }
+      });
+    });
+  }
+
+  // Save notes to Firestore
+  Future<void> _saveNoteToFirestore(String diseaseTitle, String notes) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please sign in to save notes'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Create a document ID based on userId and diseaseTitle
+      final docId = '${user.uid}_${diseaseTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      
+      await _firestore.collection('treatment_notes').doc(docId).set({
+        'userId': user.uid,
+        'diseaseTitle': diseaseTitle,
+        'notes': notes,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      setState(() {
+        diseaseNotes[diseaseTitle] = notes;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving notes: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +299,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 6,
           ),
@@ -371,7 +460,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
         color: riskColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: riskColor.withOpacity(0.5),
+          color: riskColor.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -398,7 +487,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: riskTextColor.withOpacity(0.2),
+                  color: riskTextColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -457,7 +546,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey[300]!),
               ),
@@ -491,9 +580,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
                     diseaseTitle: title,
                     initialNotes: diseaseNotes[title] ?? '',
                     onSave: (notes) {
-                      setState(() {
-                        diseaseNotes[title] = notes;
-                      });
+                      _saveNoteToFirestore(title, notes);
                     },
                   ),
                 );

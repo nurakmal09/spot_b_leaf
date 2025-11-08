@@ -307,15 +307,19 @@ class _SignUpPageState extends State<SignUpPage> {
                         );
 
                         // Show success message
-                        Future.delayed(Duration.zero, () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Account created successfully! Please log in.'),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        });
+                        if (context.mounted) {
+                          Future.delayed(Duration.zero, () {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Account created successfully! Please log in.'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          });
+                        }
                       }
                     } on FirebaseAuthException catch (e) {
                       // Close loading dialog
