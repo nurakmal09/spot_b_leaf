@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_page.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -293,6 +294,20 @@ class _SignUpPageState extends State<SignUpPage> {
                       await userCredential.user?.updateDisplayName(
                         _usernameController.text.trim(),
                       );
+
+                      // Create user document in Firestore
+                      if (userCredential.user != null) {
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userCredential.user!.uid)
+                            .set({
+                          'username': _usernameController.text.trim(),
+                          'email': _emailController.text.trim(),
+                          'phone': '',
+                          'createdAt': FieldValue.serverTimestamp(),
+                          'updatedAt': FieldValue.serverTimestamp(),
+                        });
+                      }
 
                       // Close loading dialog
                       if (context.mounted) Navigator.pop(context);

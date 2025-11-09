@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'welcome_page.dart';
+import 'edit_profile_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,6 +16,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool followUpReminders = true;
   String selectedLanguage = 'English';
   String selectedUnits = 'Metric (kg, cm)';
+  int _profileRefreshKey = 0;
+
+  void _refreshProfile() {
+    setState(() {
+      _profileRefreshKey++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,11 +187,26 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildProfileCard() {
-    // Get current user from Firebase
-    final user = FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName ?? 'User';
-    final email = user?.email ?? 'No email';
-    
+    return FutureBuilder<Map<String, String>>(
+      key: ValueKey(_profileRefreshKey),
+      future: _loadUserData(),
+      builder: (context, snapshot) {
+        String displayName = 'User';
+        String email = 'No email';
+        String phone = '';
+
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          final data = snapshot.data!;
+          displayName = data['username'] ?? 'User';
+          email = data['email'] ?? 'No email';
+          phone = data['phone'] ?? '';
+        } else {
+          // Fallback to Firebase Auth while loading
+          final user = FirebaseAuth.instance.currentUser;
+          displayName = user?.displayName ?? 'User';
+          email = user?.email ?? 'No email';
+        }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -239,6 +263,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (phone.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        phone,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -248,9 +283,18 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {
-                // TODO: Implement edit profile
-                _showSnackBar('Edit profile coming soon...');
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EditProfilePage(),
+                  ),
+                );
+                
+                // Refresh the profile card if profile was updated
+                if (result == true && mounted) {
+                  _refreshProfile();
+                }
               },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -271,6 +315,40 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+      },
+    );
+  }
+
+  Future<Map<String, String>> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return {'username': 'User', 'email': 'No email', 'phone': ''};
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        return {
+          'username': data['username'] ?? user.displayName ?? 'User',
+          'email': data['email'] ?? user.email ?? 'No email',
+          'phone': data['phone'] ?? '',
+        };
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+
+    // Fallback to Firebase Auth
+    return {
+      'username': user.displayName ?? 'User',
+      'email': user.email ?? 'No email',
+      'phone': '',
+    };
   }
 
   Widget _buildNotificationCard(
