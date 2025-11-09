@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class WeatherService {
   static const String _apiKey = '1d9f67d0424565d80bd3360a24cf5832';
@@ -16,12 +17,12 @@ class WeatherService {
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
-      } else {
-        print('Error fetching weather: ${response.statusCode}');
+        } else {
+        debugPrint('Error fetching weather: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('Error fetching weather: $e');
+      debugPrint('Error fetching weather: $e');
       return null;
     }
   }
@@ -37,12 +38,12 @@ class WeatherService {
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
-      } else {
-        print('Error fetching forecast: ${response.statusCode}');
+        } else {
+        debugPrint('Error fetching forecast: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('Error fetching forecast: $e');
+      debugPrint('Error fetching forecast: $e');
       return null;
     }
   }
@@ -62,7 +63,7 @@ class WeatherService {
         return null;
       }
     } catch (e) {
-      print('Error fetching air quality: $e');
+      debugPrint('Error fetching air quality: $e');
       return null;
     }
   }
@@ -110,7 +111,7 @@ class WeatherService {
         return null;
       }
     } catch (e) {
-      print('Error fetching UV data: $e');
+      debugPrint('Error fetching UV data: $e');
       return null;
     }
   }

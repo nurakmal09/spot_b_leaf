@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class QRMigrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -39,9 +40,10 @@ class QRMigrationService {
         }
       }
 
-      print('QR Migration completed: $migrated plants updated, $skipped plants already had QR codes');
+  // Use debugPrint to avoid lint warnings about print in production
+  debugPrint('QR Migration completed: $migrated plants updated, $skipped plants already had QR codes');
     } catch (e) {
-      print('Error during QR migration: $e');
+      debugPrint('Error during QR migration: $e');
     }
   }
 
@@ -72,7 +74,7 @@ class QRMigrationService {
         'completed_at': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error marking migration complete: $e');
+      debugPrint('Error marking migration complete: $e');
     }
   }
 
@@ -82,7 +84,7 @@ class QRMigrationService {
     final hasRun = await hasMigrationRun(userId);
     
     if (hasRun) {
-      print('QR Migration already completed for this user');
+      debugPrint('QR Migration already completed for this user');
       return;
     }
 
