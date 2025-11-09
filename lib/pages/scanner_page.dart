@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart' as mlkit;
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/plant_details_dialog.dart';
 import 'settings_page.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -26,6 +29,9 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? _qrController;
   String? _qrCodeResult;
+  Map<String, dynamic>? _scannedPlantData;
+  String? _scannedPlantDocId;
+  bool _isLoadingPlantData = false;
   
   // Image picker
   final ImagePicker _picker = ImagePicker();
@@ -88,17 +94,66 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
 
   void _onQRViewCreated(QRViewController controller) {
     _qrController = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (mounted && scanData.code != null) {
+    controller.scannedDataStream.listen((scanData) async {
+      if (mounted && scanData.code != null && !_isLoadingPlantData) {
+        final qrCode = scanData.code!;
         setState(() {
-          _qrCodeResult = scanData.code;
-          showResult = true;
-          isScanning = false;
+          _qrCodeResult = qrCode;
+          _isLoadingPlantData = true;
         });
+        
         // Pause scanning after successful scan
         controller.pauseCamera();
+        
+        // Fetch plant data from Firestore
+        await _fetchPlantData(qrCode);
+        
+        if (mounted) {
+          setState(() {
+            showResult = true;
+            isScanning = false;
+            _isLoadingPlantData = false;
+          });
+        }
       }
     });
+  }
+
+  Future<void> _fetchPlantData(String qrCodeId) async {
+    try {
+      final userId = 'tYAAISvcmtX2cULWKg3N9USbpUN2'; // TODO: Get from auth
+      debugPrint('Searching for QR code: $qrCodeId');
+      
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('plant')
+          .where('userId', isEqualTo: userId)
+          .where('qr_code_id', isEqualTo: qrCodeId)
+          .limit(1)
+          .get();
+
+      debugPrint('Found ${querySnapshot.docs.length} plants');
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        debugPrint('Plant found: ${doc.data()}');
+        setState(() {
+          _scannedPlantData = doc.data();
+          _scannedPlantDocId = doc.id;
+        });
+      } else {
+        debugPrint('No plant found with qr_code_id: $qrCodeId');
+        setState(() {
+          _scannedPlantData = null;
+          _scannedPlantDocId = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching plant data: $e');
+      setState(() {
+        _scannedPlantData = null;
+        _scannedPlantDocId = null;
+      });
+    }
   }
 
   void _toggleMode(bool diseaseMode) async {
@@ -156,16 +211,73 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       );
       
       if (image != null) {
-        // TODO: Process uploaded image
         debugPrint('Image selected: ${image.path}');
         
-        setState(() {
-          showResult = true;
-          isScanning = false;
-        });
+        if (isDiseaseMode) {
+          // Disease mode - just show placeholder result
+          setState(() {
+            showResult = true;
+            isScanning = false;
+          });
+        } else {
+          // QR mode - decode QR code from image
+          setState(() {
+            _isLoadingPlantData = true;
+          });
+          
+          final inputImage = mlkit.InputImage.fromFilePath(image.path);
+          final barcodeScanner = mlkit.BarcodeScanner();
+          
+          try {
+            final List<mlkit.Barcode> barcodes = await barcodeScanner.processImage(inputImage);
+            
+            if (barcodes.isNotEmpty && barcodes.first.displayValue != null) {
+              final qrCode = barcodes.first.displayValue!;
+              debugPrint('QR Code decoded: $qrCode');
+              
+              setState(() {
+                _qrCodeResult = qrCode;
+              });
+              
+              // Fetch plant data
+              await _fetchPlantData(qrCode);
+              
+              setState(() {
+                showResult = true;
+                isScanning = false;
+                _isLoadingPlantData = false;
+              });
+            } else {
+              debugPrint('No QR code found in image');
+              setState(() {
+                _qrCodeResult = 'Unknown';
+                _scannedPlantData = null;
+                _scannedPlantDocId = null;
+                showResult = true;
+                isScanning = false;
+                _isLoadingPlantData = false;
+              });
+            }
+          } catch (e) {
+            debugPrint('Error decoding QR code: $e');
+            setState(() {
+              _qrCodeResult = 'Unknown';
+              _scannedPlantData = null;
+              _scannedPlantDocId = null;
+              showResult = true;
+              isScanning = false;
+              _isLoadingPlantData = false;
+            });
+          } finally {
+            barcodeScanner.close();
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
+      setState(() {
+        _isLoadingPlantData = false;
+      });
     }
   }
 
@@ -174,6 +286,9 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       showResult = false;
       isScanning = true;
       _qrCodeResult = null;
+      _scannedPlantData = null;
+      _scannedPlantDocId = null;
+      _isLoadingPlantData = false;
       
       // Resume camera/scanner
       if (!isDiseaseMode && _qrController != null) {
@@ -371,14 +486,16 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
             ),
 
             // Result Card
-            if (showResult)
+            if (showResult || _isLoadingPlantData)
               Positioned(
                 bottom: 80,
                 left: 20,
                 right: 20,
-                child: isDiseaseMode
-                    ? _buildDiseaseResultCard()
-                    : _buildQRResultCard(),
+                child: _isLoadingPlantData
+                    ? _buildLoadingCard()
+                    : (isDiseaseMode
+                        ? _buildDiseaseResultCard()
+                        : _buildQRResultCard()),
               ),
           ],
         ),
@@ -462,7 +579,66 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildLoadingCard() {
+    return Container(
+      padding: const EdgeInsets.all(30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(
+            'Loading plant data...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQRResultCard() {
+    final plantData = _scannedPlantData;
+    final plantFound = plantData != null;
+    
+    // Extract plant information
+    final plantId = _qrCodeResult ?? 'Unknown';
+    final fieldName = plantFound ? (plantData['field_name']?.toString() ?? 'N/A') : 'N/A';
+    final section = plantFound ? (plantData['section']?.toString() ?? 'N/A') : 'N/A';
+    final row = plantFound ? (plantData['row']?.toString() ?? 'N/A') : 'N/A';
+    final statusList = plantFound ? (plantData['status'] as List<dynamic>?) : null;
+    
+    String statusText = 'Unknown';
+    Color statusColor = Colors.grey;
+    if (statusList != null && statusList.isNotEmpty) {
+      final status = statusList[0].toString().toLowerCase();
+      if (status == 'diseased') {
+        statusText = 'Disease Detected';
+        statusColor = Colors.red;
+      } else if (status == 'warning') {
+        statusText = 'Warning';
+        statusColor = Colors.orange;
+      } else {
+        statusText = 'Healthy';
+        statusColor = Colors.green;
+      }
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -485,26 +661,30 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: plantFound ? Colors.blue[50] : Colors.orange[50],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.check_circle, color: Colors.blue[600], size: 32),
+                child: Icon(
+                  plantFound ? Icons.check_circle : Icons.warning,
+                  color: plantFound ? Colors.blue[600] : Colors.orange[600],
+                  size: 32,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'QR Code Scanned',
-                      style: TextStyle(
+                    Text(
+                      plantFound ? 'QR Code Scanned' : 'Plant Not Found',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _qrCodeResult ?? 'Unknown',
+                      plantId,
                       style: const TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
@@ -517,60 +697,107 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(12),
+          if (plantFound) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Field: ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        fieldName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        'Location: ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        'Section $section, Row $row',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        'Status: ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Section:',
+          ] else ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This QR code is not registered in your garden.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[600],
+                        color: Colors.orange[900],
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Field A, Row 3',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      'Status:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Disease Detected',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -593,29 +820,37 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to plant details
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              if (plantFound) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => PlantDetailsDialog(
+                          plantData: _scannedPlantData!,
+                          documentId: _scannedPlantDocId!,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'View Details',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    child: const Text(
+                      'View Details',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ],
