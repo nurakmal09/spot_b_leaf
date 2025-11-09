@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'settings_page.dart';
 
@@ -9,29 +12,174 @@ class ScannerPage extends StatefulWidget {
   State<ScannerPage> createState() => _ScannerPageState();
 }
 
-class _ScannerPageState extends State<ScannerPage> {
+class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   bool isDiseaseMode = false; // false = QR Code, true = Disease
   bool isScanning = true;
   bool showResult = false;
+  
+  // Camera for disease detection
+  CameraController? _cameraController;
+  List<CameraDescription>? _cameras;
+  bool _isCameraInitialized = false;
+  
+  // QR Scanner
+  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
+  QRViewController? _qrController;
+  String? _qrCodeResult;
+  
+  // Image picker
+  final ImagePicker _picker = ImagePicker();
 
-  void _toggleMode(bool diseaseMode) {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Only initialize camera if in disease mode
+    if (isDiseaseMode) {
+      _initializeCamera();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = _cameraController;
+    
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      _cameras = await availableCameras();
+      if (_cameras != null && _cameras!.isNotEmpty) {
+        _cameraController = CameraController(
+          _cameras![0],
+          ResolutionPreset.high,
+          enableAudio: false,
+        );
+
+        await _cameraController!.initialize();
+        
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _qrController?.dispose();
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  void _onQRViewCreated(QRViewController controller) {
+    _qrController = controller;
+    controller.scannedDataStream.listen((scanData) {
+      if (mounted && scanData.code != null) {
+        setState(() {
+          _qrCodeResult = scanData.code;
+          showResult = true;
+          isScanning = false;
+        });
+        // Pause scanning after successful scan
+        controller.pauseCamera();
+      }
+    });
+  }
+
+  void _toggleMode(bool diseaseMode) async {
     setState(() {
       isDiseaseMode = diseaseMode;
       showResult = false;
       isScanning = true;
+      _qrCodeResult = null;
     });
+    
+    // Dispose and reinitialize based on mode
+    if (diseaseMode) {
+      // Switch to disease mode - pause QR and init camera
+      _qrController?.pauseCamera();
+      if (!_isCameraInitialized) {
+        await _initializeCamera();
+      }
+    } else {
+      // Switch to QR mode - dispose camera and resume QR
+      if (_cameraController != null) {
+        await _cameraController!.dispose();
+        _cameraController = null;
+        setState(() {
+          _isCameraInitialized = false;
+        });
+      }
+      _qrController?.resumeCamera();
+    }
   }
 
-  void _simulateScan() {
+  Future<void> _captureImage() async {
+    if (isDiseaseMode && _cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        final image = await _cameraController!.takePicture();
+        // TODO: Send image to disease detection API
+        debugPrint('Image captured: ${image.path}');
+        
+        setState(() {
+          showResult = true;
+          isScanning = false;
+        });
+      } catch (e) {
+        debugPrint('Error capturing image: $e');
+      }
+    }
+  }
+
+  Future<void> _uploadFromGallery() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        // TODO: Process uploaded image
+        debugPrint('Image selected: ${image.path}');
+        
+        setState(() {
+          showResult = true;
+          isScanning = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
+  void _resetScanner() {
     setState(() {
-      isScanning = false;
-      showResult = true;
+      showResult = false;
+      isScanning = true;
+      _qrCodeResult = null;
+      
+      // Resume camera/scanner
+      if (!isDiseaseMode && _qrController != null) {
+        _qrController!.resumeCamera();
+      }
     });
-  }
-
-  void _uploadFromGallery() {
-    // TODO: Implement gallery upload
-    _simulateScan();
   }
 
   @override
@@ -146,65 +294,72 @@ class _ScannerPageState extends State<ScannerPage> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Camera preview placeholder
-                      if (isDiseaseMode && showResult)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 40),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[800],
-                            borderRadius: BorderRadius.circular(20),
-                            image: const DecorationImage(
-                              image: NetworkImage(
-                                'https://via.placeholder.com/400x400/808080/FFFFFF?text=Leaf+Image',
-                              ),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-
-                      // Scanning Frame
+                      // Camera preview or QR scanner
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 40),
                         width: double.infinity,
                         height: 300,
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            color: isDiseaseMode ? Colors.green : Colors.blue,
-                            width: 3,
-                          ),
+                          color: Colors.grey[900],
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Stack(
-                          children: [
-                            // Corner indicators
-                            _buildCornerIndicator(Alignment.topLeft, isDiseaseMode),
-                            _buildCornerIndicator(Alignment.topRight, isDiseaseMode),
-                            _buildCornerIndicator(Alignment.bottomLeft, isDiseaseMode),
-                            _buildCornerIndicator(Alignment.bottomRight, isDiseaseMode),
-                            
-                            // Center focus icon
-                            if (isScanning)
-                              Center(
-                                child: Icon(
-                                  isDiseaseMode ? Icons.eco : Icons.qr_code_scanner,
-                                  size: 80,
-                                  color: (isDiseaseMode ? Colors.green : Colors.blue)
-                                      .withValues(alpha: 0.5),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: isDiseaseMode
+                              ? (_cameraController != null && _isCameraInitialized
+                                  ? CameraPreview(_cameraController!)
+                                  : const Center(
+                                      child: CircularProgressIndicator(color: Colors.white),
+                                    ))
+                              : QRView(
+                                  key: qrKey,
+                                  onQRViewCreated: _onQRViewCreated,
+                                  overlay: QrScannerOverlayShape(
+                                    borderColor: Colors.blue,
+                                    borderRadius: 20,
+                                    borderLength: 30,
+                                    borderWidth: 10,
+                                    cutOutSize: 250,
+                                  ),
                                 ),
-                              ),
-                          ],
                         ),
                       ),
 
-                      // Scan button (simulate scanning)
+                      // Scanning Frame overlay
                       if (isScanning)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 40),
+                          width: double.infinity,
+                          height: 300,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isDiseaseMode ? Colors.green : Colors.blue,
+                              width: 3,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Stack(
+                            children: [
+                              // Corner indicators
+                              _buildCornerIndicator(Alignment.topLeft, isDiseaseMode),
+                              _buildCornerIndicator(Alignment.topRight, isDiseaseMode),
+                              _buildCornerIndicator(Alignment.bottomLeft, isDiseaseMode),
+                              _buildCornerIndicator(Alignment.bottomRight, isDiseaseMode),
+                            ],
+                          ),
+                        ),
+
+                      // Capture/Scan button
+                      if (isScanning && !showResult)
                         Positioned(
                           bottom: 20,
                           child: FloatingActionButton.extended(
-                            onPressed: _simulateScan,
+                            onPressed: isDiseaseMode ? _captureImage : () {
+                              // QR scanning is automatic
+                            },
                             backgroundColor: isDiseaseMode ? Colors.green : Colors.blue,
-                            icon: const Icon(Icons.camera_alt),
-                            label: const Text('Scan'),
+                            icon: Icon(isDiseaseMode ? Icons.camera_alt : Icons.qr_code_scanner),
+                            label: Text(isDiseaseMode ? 'Capture' : 'Scanning...'),
                           ),
                         ),
                     ],
@@ -336,24 +491,26 @@ class _ScannerPageState extends State<ScannerPage> {
                 child: Icon(Icons.check_circle, color: Colors.blue[600], size: 32),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Plant Identified',
+                    const Text(
+                      'QR Code Scanned',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'BN-45',
-                      style: TextStyle(
+                      _qrCodeResult ?? 'Unknown',
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -415,28 +572,51 @@ class _ScannerPageState extends State<ScannerPage> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // TODO: Navigate to plant details
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _resetScanner,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Scan Again',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              child: const Text(
-                'View Plant Details',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: Navigate to plant details
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'View Details',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -542,28 +722,51 @@ class _ScannerPageState extends State<ScannerPage> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // TODO: Navigate to plant details
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _resetScanner,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green[600],
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Scan Again',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              child: const Text(
-                'View Plant Details',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: Navigate to plant details
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'View Details',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

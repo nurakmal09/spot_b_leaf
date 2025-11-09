@@ -52,9 +52,11 @@ class _MyGardenPageState extends State<MyGardenPage> {
   @override
   void initState() {
     super.initState();
+    // Load data in parallel for faster initialization
     _loadFieldsFromFirestore();
     _loadPlantsFromFirestore();
-    _runQRMigration();
+    // Run migration asynchronously without blocking UI
+    _runQRMigrationAsync();
     
     // Sync scroll controllers
     _horizontalScrollController.addListener(() {
@@ -70,16 +72,15 @@ class _MyGardenPageState extends State<MyGardenPage> {
     });
   }
 
-  // Run QR code migration for existing plants
-  Future<void> _runQRMigration() async {
+  // Run QR code migration for existing plants (async, non-blocking)
+  void _runQRMigrationAsync() {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    try {
-      await _qrMigrationService.runMigration(user.uid);
-    } catch (e) {
+    // Run migration in background without blocking UI
+    _qrMigrationService.runMigration(user.uid).catchError((_) {
       // Silently fail - migration is not critical for app functionality
-    }
+    });
   }
 
   @override
@@ -93,7 +94,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
     super.dispose();
   }
 
-  // Load fields from Firestore
+  // Load fields from Firestore with caching
   void _loadFieldsFromFirestore() {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -105,35 +106,45 @@ class _MyGardenPageState extends State<MyGardenPage> {
         .listen((snapshot) {
       if (snapshot.docs.isEmpty) return;
 
-      setState(() {
-        // Clear default field if we have Firestore data
-        if (snapshot.docs.isNotEmpty) {
+      // Only update if there are actual changes
+      bool hasChanges = false;
+      final newFields = <String, Map<String, dynamic>>{};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final fieldName = data['field_name'] as String? ?? 'Unnamed Field';
+        
+        // Check if this is a new field
+        if (!fields.containsKey(fieldName)) {
+          hasChanges = true;
+        }
+        
+        // Initialize field structure, plants will be loaded separately
+        newFields[fieldName] = {
+          'totalPlants': 0,
+          'healthy': 0,
+          'diseased': 0,
+          'warning': 0,
+          'plants': <PlantStatus>[],
+        };
+      }
+
+      // Only update state if there are changes
+      if (hasChanges || fields.isEmpty) {
+        setState(() {
           fields.clear();
-        }
+          fields.addAll(newFields);
 
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final fieldName = data['field_name'] as String? ?? 'Unnamed Field';
-          
-          // Initialize field structure, plants will be loaded separately
-          fields[fieldName] = {
-            'totalPlants': 0,
-            'healthy': 0,
-            'diseased': 0,
-            'warning': 0,
-            'plants': <PlantStatus>[],
-          };
-        }
-
-        // Update selected field if needed
-        if (!fields.containsKey(selectedField) && fields.isNotEmpty) {
-          selectedField = fields.keys.first;
-        }
-      });
+          // Update selected field if needed
+          if (!fields.containsKey(selectedField) && fields.isNotEmpty) {
+            selectedField = fields.keys.first;
+          }
+        });
+      }
     });
   }
 
-  // Load plants from Firestore and update field statistics
+  // Load plants from Firestore and update field statistics (optimized)
   void _loadPlantsFromFirestore() {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -143,56 +154,70 @@ class _MyGardenPageState extends State<MyGardenPage> {
         .where('userId', isEqualTo: user.uid)
         .snapshots()
         .listen((snapshot) {
-      setState(() {
-        // Reset all field plant counts and documents
-        for (var fieldName in fields.keys) {
-          fields[fieldName]!['totalPlants'] = 0;
-          fields[fieldName]!['healthy'] = 0;
-          fields[fieldName]!['diseased'] = 0;
-          fields[fieldName]!['warning'] = 0;
-          fields[fieldName]!['plants'] = <PlantStatus>[];
-        }
-        plantDocuments.clear();
+      // Batch process all changes before calling setState once
+      final newPlantDocuments = <String, List<Map<String, dynamic>>>{};
+      final fieldStats = <String, Map<String, dynamic>>{};
 
-        // Count plants per field
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final fieldName = data['field_name'] as String?;
-          final statusList = data['status'] as List<dynamic>?;
-          
-          if (fieldName != null && fields.containsKey(fieldName)) {
-            // Store plant document with its ID
-            if (!plantDocuments.containsKey(fieldName)) {
-              plantDocuments[fieldName] = [];
-            }
-            plantDocuments[fieldName]!.add({
-              'documentId': doc.id,
-              ...data,
-            });
-            
-            // Determine plant status
-            PlantStatus plantStatus = PlantStatus.healthy;
-            String statusStr = 'healthy';
-            
-            if (statusList != null && statusList.isNotEmpty) {
-              statusStr = statusList[0].toString().toLowerCase();
-              if (statusStr == 'diseased') {
-                plantStatus = PlantStatus.diseased;
-                fields[fieldName]!['diseased'] = (fields[fieldName]!['diseased'] as int) + 1;
-              } else if (statusStr == 'warning') {
-                plantStatus = PlantStatus.warning;
-                fields[fieldName]!['warning'] = (fields[fieldName]!['warning'] as int) + 1;
-              } else {
-                fields[fieldName]!['healthy'] = (fields[fieldName]!['healthy'] as int) + 1;
-              }
-            } else {
-              fields[fieldName]!['healthy'] = (fields[fieldName]!['healthy'] as int) + 1;
-            }
-            
-            // Add plant to field's plant list
-            (fields[fieldName]!['plants'] as List<PlantStatus>).add(plantStatus);
-            fields[fieldName]!['totalPlants'] = (fields[fieldName]!['totalPlants'] as int) + 1;
+      // Initialize stats for all fields
+      for (var fieldName in fields.keys) {
+        fieldStats[fieldName] = {
+          'totalPlants': 0,
+          'healthy': 0,
+          'diseased': 0,
+          'warning': 0,
+          'plants': <PlantStatus>[],
+        };
+      }
+
+      // Process all plants in a single pass
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final fieldName = data['field_name'] as String?;
+        final statusList = data['status'] as List<dynamic>?;
+        
+        if (fieldName != null && fields.containsKey(fieldName)) {
+          // Store plant document with its ID
+          if (!newPlantDocuments.containsKey(fieldName)) {
+            newPlantDocuments[fieldName] = [];
           }
+          newPlantDocuments[fieldName]!.add({
+            'documentId': doc.id,
+            ...data,
+          });
+          
+          // Determine plant status
+          PlantStatus plantStatus = PlantStatus.healthy;
+          String statusStr = 'healthy';
+          
+          if (statusList != null && statusList.isNotEmpty) {
+            statusStr = statusList[0].toString().toLowerCase();
+            if (statusStr == 'diseased') {
+              plantStatus = PlantStatus.diseased;
+              fieldStats[fieldName]!['diseased'] = (fieldStats[fieldName]!['diseased'] as int) + 1;
+            } else if (statusStr == 'warning') {
+              plantStatus = PlantStatus.warning;
+              fieldStats[fieldName]!['warning'] = (fieldStats[fieldName]!['warning'] as int) + 1;
+            } else {
+              fieldStats[fieldName]!['healthy'] = (fieldStats[fieldName]!['healthy'] as int) + 1;
+            }
+          } else {
+            fieldStats[fieldName]!['healthy'] = (fieldStats[fieldName]!['healthy'] as int) + 1;
+          }
+          
+          // Add plant to field's plant list
+          (fieldStats[fieldName]!['plants'] as List<PlantStatus>).add(plantStatus);
+          fieldStats[fieldName]!['totalPlants'] = (fieldStats[fieldName]!['totalPlants'] as int) + 1;
+        }
+      }
+
+      // Single setState call with all updates
+      setState(() {
+        plantDocuments.clear();
+        plantDocuments.addAll(newPlantDocuments);
+        
+        // Update field stats
+        for (var fieldName in fieldStats.keys) {
+          fields[fieldName]!.addAll(fieldStats[fieldName]!);
         }
       });
     });

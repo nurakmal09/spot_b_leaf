@@ -96,7 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
-  // Load weather data from API
+  // Load weather data from API - optimized with parallel requests
   Future<void> _loadWeatherData() async {
     if (!mounted) return;
     
@@ -118,32 +118,28 @@ class _DashboardPageState extends State<DashboardPage> {
 
       currentPosition = position;
 
-      // Fetch weather data
-      final weatherData = await _weatherService.getCurrentWeather(
-        position.latitude,
-        position.longitude,
-      );
+      // Fetch all weather data in parallel for faster loading
+      final results = await Future.wait([
+        _weatherService.getCurrentWeather(position.latitude, position.longitude),
+        _weatherService.getForecast(position.latitude, position.longitude),
+        _weatherService.getUVIndex(position.latitude, position.longitude),
+      ]);
 
+      final weatherData = results[0];
+      final forecastData = results[1];
+      final uvData = results[2];
+
+      // Parse current weather
       if (weatherData != null) {
         currentWeather = _weatherService.parseWeatherData(weatherData);
       }
 
-      // Fetch forecast
-      final forecastData = await _weatherService.getForecast(
-        position.latitude,
-        position.longitude,
-      );
-
+      // Parse forecast
       if (forecastData != null) {
         forecast = _weatherService.parseForecastData(forecastData);
       }
 
-      // Fetch UV index
-      final uvData = await _weatherService.getUVIndex(
-        position.latitude,
-        position.longitude,
-      );
-
+      // Parse UV index
       if (uvData != null) {
         uvIndex = uvData['uvi'];
       }
@@ -161,7 +157,8 @@ class _DashboardPageState extends State<DashboardPage> {
         isLoadingWeather = false;
       });
     } catch (e) {
-      print('Error loading weather: $e');
+      // Use debugPrint to avoid lint warnings about print in production
+      debugPrint('Error loading weather: $e');
       if (!mounted) return;
       setState(() {
         isLoadingWeather = false;
@@ -169,7 +166,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Load weather with default location (for testing)
+  // Load weather with default location (for testing) - optimized with parallel requests
   Future<void> _loadWeatherWithDefaultLocation() async {
     setState(() {
       isLoadingWeather = true;
@@ -180,32 +177,28 @@ class _DashboardPageState extends State<DashboardPage> {
       const double defaultLat = 3.1319;
       const double defaultLon = 101.6841;
 
-      // Fetch weather data
-      final weatherData = await _weatherService.getCurrentWeather(
-        defaultLat,
-        defaultLon,
-      );
+      // Fetch all weather data in parallel for faster loading
+      final results = await Future.wait([
+        _weatherService.getCurrentWeather(defaultLat, defaultLon),
+        _weatherService.getForecast(defaultLat, defaultLon),
+        _weatherService.getUVIndex(defaultLat, defaultLon),
+      ]);
 
+      final weatherData = results[0];
+      final forecastData = results[1];
+      final uvData = results[2];
+
+      // Parse current weather
       if (weatherData != null) {
         currentWeather = _weatherService.parseWeatherData(weatherData);
       }
 
-      // Fetch forecast
-      final forecastData = await _weatherService.getForecast(
-        defaultLat,
-        defaultLon,
-      );
-
+      // Parse forecast
       if (forecastData != null) {
         forecast = _weatherService.parseForecastData(forecastData);
       }
 
-      // Fetch UV index
-      final uvData = await _weatherService.getUVIndex(
-        defaultLat,
-        defaultLon,
-      );
-
+      // Parse UV index
       if (uvData != null) {
         uvIndex = uvData['uvi'];
       }
@@ -222,7 +215,8 @@ class _DashboardPageState extends State<DashboardPage> {
         isLoadingWeather = false;
       });
     } catch (e) {
-      print('Error loading weather: $e');
+      // Use debugPrint to avoid lint warnings about print in production
+      debugPrint('Error loading weather: $e');
       setState(() {
         isLoadingWeather = false;
       });
