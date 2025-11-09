@@ -552,23 +552,38 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     try {
       // Show loading indicator
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                SizedBox(width: 16),
-                Text('Saving QR Code...'),
-              ],
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Saving QR Code...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -584,25 +599,52 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       await Gal.putImageBytes(pngBytes, album: 'Plant QR Codes');
 
       if (context.mounted) {
-        // Clear the loading message
-        ScaffoldMessenger.of(context).clearSnackBars();
+        // Close loading dialog
+        Navigator.of(context, rootNavigator: true).pop();
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('QR Code saved to gallery!'),
-            backgroundColor: Colors.green[600],
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
+        // Show success notification
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'QR Code saved to gallery!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
+        // Close loading dialog if it's still open
+        Navigator.of(context, rootNavigator: true).pop();
         
         String errorMessage = 'Error saving QR code';
         if (e is GalException) {
@@ -611,18 +653,44 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
           }
         }
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      errorMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }

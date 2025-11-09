@@ -77,9 +77,44 @@ class _EditFieldDialogState extends State<EditFieldDialog> {
                     onPressed: () {
                       final name = _nameController.text.trim();
                       if (name.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Field name cannot be empty')),
+                        showDialog(
+                          context: context,
+                          barrierDismissible: true,
+                          builder: (context) => Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 40),
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning, color: Colors.white, size: 48),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Field name cannot be empty',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         );
+                        Future.delayed(const Duration(seconds: 2), () {
+                          if (context.mounted) {
+                            Navigator.of(context, rootNavigator: true).pop();
+                          }
+                        });
                         return;
                       }
                       widget.onSave(name);

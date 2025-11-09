@@ -617,7 +617,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     final plantFound = plantData != null;
     
     // Extract plant information
-    final plantId = _qrCodeResult ?? 'Unknown';
+    final plantId = plantFound ? (plantData['plant_id']?.toString() ?? 'Unknown') : 'Unknown';
     final fieldName = plantFound ? (plantData['field_name']?.toString() ?? 'N/A') : 'N/A';
     final section = plantFound ? (plantData['section']?.toString() ?? 'N/A') : 'N/A';
     final row = plantFound ? (plantData['row']?.toString() ?? 'N/A') : 'N/A';
@@ -625,6 +625,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     
     String statusText = 'Unknown';
     Color statusColor = Colors.grey;
+    
     if (statusList != null && statusList.isNotEmpty) {
       final status = statusList[0].toString().toLowerCase();
       if (status == 'diseased') {
@@ -633,7 +634,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       } else if (status == 'warning') {
         statusText = 'Warning';
         statusColor = Colors.orange;
-      } else {
+      } else if (status == 'healthy') {
         statusText = 'Healthy';
         statusColor = Colors.green;
       }
@@ -708,64 +709,82 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Field
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Field: ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          'Field:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
                         ),
                       ),
-                      Text(
-                        fieldName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue,
+                      Expanded(
+                        child: Text(
+                          fieldName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
+                  // Location
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Location: ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          'Location:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
                         ),
                       ),
-                      Text(
-                        'Section $section, Row $row',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue,
+                      Expanded(
+                        child: Text(
+                          'Section $section, Row $row',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
+                  // Status
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Status: ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          'Status:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
                         ),
                       ),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
                         ),
                       ),
                     ],

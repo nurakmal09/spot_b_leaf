@@ -28,12 +28,44 @@ class WeeklyReportPage extends StatelessWidget {
     
     if (user == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to save reports'),
-            backgroundColor: Colors.orange,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Please sign in to save reports',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
       return;
     }
@@ -92,29 +124,88 @@ class WeeklyReportPage extends StatelessWidget {
           .add(reportData);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Report saved successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Report saved successfully!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
 
-        // Navigate back after a short delay
-        Future.delayed(const Duration(milliseconds: 500), () {
+        // Navigate back after showing notification
+        Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
-            Navigator.pop(context);
+            Navigator.of(context, rootNavigator: true).pop(); // Close notification
+            Navigator.pop(context); // Go back
           }
         });
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving report: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error saving report: $e',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }
@@ -124,64 +215,73 @@ class WeeklyReportPage extends StatelessWidget {
     final plantId = plantData['plant_id'] as String? ?? 'Unknown';
     final section = plantData['section']?.toString() ?? 'N/A';
     final row = plantData['row']?.toString() ?? 'N/A';
+    final fieldName = plantData['field_name'] as String? ?? 'Unknown Field';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
+      appBar: AppBar(
+        backgroundColor: Colors.green[600],
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Weekly Report',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Weekly Report',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Green Header Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.green[600]!, Colors.green[500]!],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                  // Plant Info Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.green[600]!, Colors.green[500]!],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
                                 Icons.calendar_today,
                                 color: Colors.white,
                                 size: 20,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
                                 _getWeekRange(),
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -189,29 +289,36 @@ class WeeklyReportPage extends StatelessWidget {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            plantId,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          plantId,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Field $section, Row $row',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.agriculture, color: Colors.white.withOpacity(0.8), size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$fieldName • Section $section • Row $row',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 15,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
 
                     // Health Summary
                     const Text(
@@ -369,31 +476,49 @@ class WeeklyReportPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Save Report Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _saveReport(context),
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save Report'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[600],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 100), // Extra space for bottom button
                   ],
                 ),
               ),
             ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
           ],
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _saveReport(context),
+              icon: const Icon(Icons.save, size: 22),
+              label: const Text(
+                'Save Report',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
         ),
       ),
     );

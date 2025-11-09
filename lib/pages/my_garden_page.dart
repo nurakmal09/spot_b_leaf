@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../widgets/add_plant_dialog.dart';
+import 'add_plant_page.dart';
 import '../widgets/edit_field_dialog.dart';
 import '../widgets/plant_details_dialog.dart';
 import '../services/qr_migration_service.dart';
@@ -228,12 +228,44 @@ class _MyGardenPageState extends State<MyGardenPage> {
     final user = _auth.currentUser;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to save fields'),
-            backgroundColor: Colors.orange,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Please sign in to save fields',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
       return;
     }
@@ -266,16 +298,105 @@ class _MyGardenPageState extends State<MyGardenPage> {
     if (user == null) return;
 
     try {
+      // First, delete all plants associated with this field
+      final plantsQuery = await _firestore
+          .collection('plant')
+          .where('userId', isEqualTo: user.uid)
+          .where('field_name', isEqualTo: fieldName)
+          .get();
+
+      // Delete all plants in batch
+      final batch = _firestore.batch();
+      for (var doc in plantsQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Then delete the field document
       final docId = '${user.uid}_${fieldName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(docId).delete();
-    } catch (e) {
+
+      // Show success notification
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting field: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Field and ${plantsQuery.docs.length} plant(s) deleted successfully',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error deleting field: $e',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }
@@ -286,26 +407,112 @@ class _MyGardenPageState extends State<MyGardenPage> {
     if (user == null) return;
 
     try {
-      // Delete old document
+      // Update all plants with the new field name
+      final plantsQuery = await _firestore
+          .collection('plant')
+          .where('userId', isEqualTo: user.uid)
+          .where('field_name', isEqualTo: oldName)
+          .get();
+
+      // Update plants in batch
+      final batch = _firestore.batch();
+      for (var doc in plantsQuery.docs) {
+        batch.update(doc.reference, {'field_name': newName});
+      }
+      await batch.commit();
+
+      // Delete old field document
       final oldDocId = '${user.uid}_${oldName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(oldDocId).delete();
 
-      // Create new document
+      // Create new field document
       final newDocId = '${user.uid}_${newName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(newDocId).set({
         'userId': user.uid,
         'field_name': newName,
-        'diseased': fieldData['diseased'] ?? 0,
-        'plants': fieldData['totalPlants'] ?? 0,
       });
-    } catch (e) {
+
+      // Show success notification
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error renaming field: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Field renamed and ${plantsQuery.docs.length} plant(s) updated',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error renaming field: $e',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }
@@ -1163,10 +1370,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
   }
 
   void _showAddPlantDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AddPlantDialog(
-        fieldName: selectedField,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPlantPage(
+          fieldName: selectedField,
+        ),
       ),
     );
   }
