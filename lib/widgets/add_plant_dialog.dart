@@ -23,6 +23,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
   final sectionController = TextEditingController();
   final rowController = TextEditingController();
   final notesController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   DateTime? selectedPlantingDate;
   String selectedStatus = 'Healthy';
   bool _isSaving = false;
@@ -33,6 +34,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
     sectionController.dispose();
     rowController.dispose();
     notesController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -99,6 +101,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
         const SnackBar(
           content: Text('Please fill in all required fields (Plant ID, Section, Row)'),
           backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
         ),
       );
       return;
@@ -111,6 +114,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
           const SnackBar(
             content: Text('Please sign in to add plants'),
             backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -182,6 +186,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
           SnackBar(
             content: Text('Error adding plant: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -225,6 +230,7 @@ class _AddPlantDialogState extends State<AddPlantDialog> {
             // Content
             Flexible(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

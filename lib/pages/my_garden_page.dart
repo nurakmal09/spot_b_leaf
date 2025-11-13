@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../widgets/add_plant_dialog.dart';
+import 'add_plant_page.dart';
 import '../widgets/edit_field_dialog.dart';
 import '../widgets/plant_details_dialog.dart';
 import '../services/qr_migration_service.dart';
@@ -52,9 +52,11 @@ class _MyGardenPageState extends State<MyGardenPage> {
   @override
   void initState() {
     super.initState();
+    // Load data in parallel for faster initialization
     _loadFieldsFromFirestore();
     _loadPlantsFromFirestore();
-    _runQRMigration();
+    // Run migration asynchronously without blocking UI
+    _runQRMigrationAsync();
     
     // Sync scroll controllers
     _horizontalScrollController.addListener(() {
@@ -70,16 +72,15 @@ class _MyGardenPageState extends State<MyGardenPage> {
     });
   }
 
-  // Run QR code migration for existing plants
-  Future<void> _runQRMigration() async {
+  // Run QR code migration for existing plants (async, non-blocking)
+  void _runQRMigrationAsync() {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    try {
-      await _qrMigrationService.runMigration(user.uid);
-    } catch (e) {
+    // Run migration in background without blocking UI
+    _qrMigrationService.runMigration(user.uid).catchError((_) {
       // Silently fail - migration is not critical for app functionality
-    }
+    });
   }
 
   @override
@@ -93,7 +94,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
     super.dispose();
   }
 
-  // Load fields from Firestore
+  // Load fields from Firestore with caching
   void _loadFieldsFromFirestore() {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -105,35 +106,45 @@ class _MyGardenPageState extends State<MyGardenPage> {
         .listen((snapshot) {
       if (snapshot.docs.isEmpty) return;
 
-      setState(() {
-        // Clear default field if we have Firestore data
-        if (snapshot.docs.isNotEmpty) {
+      // Only update if there are actual changes
+      bool hasChanges = false;
+      final newFields = <String, Map<String, dynamic>>{};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final fieldName = data['field_name'] as String? ?? 'Unnamed Field';
+        
+        // Check if this is a new field
+        if (!fields.containsKey(fieldName)) {
+          hasChanges = true;
+        }
+        
+        // Initialize field structure, plants will be loaded separately
+        newFields[fieldName] = {
+          'totalPlants': 0,
+          'healthy': 0,
+          'diseased': 0,
+          'warning': 0,
+          'plants': <PlantStatus>[],
+        };
+      }
+
+      // Only update state if there are changes
+      if (hasChanges || fields.isEmpty) {
+        setState(() {
           fields.clear();
-        }
+          fields.addAll(newFields);
 
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final fieldName = data['field_name'] as String? ?? 'Unnamed Field';
-          
-          // Initialize field structure, plants will be loaded separately
-          fields[fieldName] = {
-            'totalPlants': 0,
-            'healthy': 0,
-            'diseased': 0,
-            'warning': 0,
-            'plants': <PlantStatus>[],
-          };
-        }
-
-        // Update selected field if needed
-        if (!fields.containsKey(selectedField) && fields.isNotEmpty) {
-          selectedField = fields.keys.first;
-        }
-      });
+          // Update selected field if needed
+          if (!fields.containsKey(selectedField) && fields.isNotEmpty) {
+            selectedField = fields.keys.first;
+          }
+        });
+      }
     });
   }
 
-  // Load plants from Firestore and update field statistics
+  // Load plants from Firestore and update field statistics (optimized)
   void _loadPlantsFromFirestore() {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -143,56 +154,70 @@ class _MyGardenPageState extends State<MyGardenPage> {
         .where('userId', isEqualTo: user.uid)
         .snapshots()
         .listen((snapshot) {
-      setState(() {
-        // Reset all field plant counts and documents
-        for (var fieldName in fields.keys) {
-          fields[fieldName]!['totalPlants'] = 0;
-          fields[fieldName]!['healthy'] = 0;
-          fields[fieldName]!['diseased'] = 0;
-          fields[fieldName]!['warning'] = 0;
-          fields[fieldName]!['plants'] = <PlantStatus>[];
-        }
-        plantDocuments.clear();
+      // Batch process all changes before calling setState once
+      final newPlantDocuments = <String, List<Map<String, dynamic>>>{};
+      final fieldStats = <String, Map<String, dynamic>>{};
 
-        // Count plants per field
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final fieldName = data['field_name'] as String?;
-          final statusList = data['status'] as List<dynamic>?;
-          
-          if (fieldName != null && fields.containsKey(fieldName)) {
-            // Store plant document with its ID
-            if (!plantDocuments.containsKey(fieldName)) {
-              plantDocuments[fieldName] = [];
-            }
-            plantDocuments[fieldName]!.add({
-              'documentId': doc.id,
-              ...data,
-            });
-            
-            // Determine plant status
-            PlantStatus plantStatus = PlantStatus.healthy;
-            String statusStr = 'healthy';
-            
-            if (statusList != null && statusList.isNotEmpty) {
-              statusStr = statusList[0].toString().toLowerCase();
-              if (statusStr == 'diseased') {
-                plantStatus = PlantStatus.diseased;
-                fields[fieldName]!['diseased'] = (fields[fieldName]!['diseased'] as int) + 1;
-              } else if (statusStr == 'warning') {
-                plantStatus = PlantStatus.warning;
-                fields[fieldName]!['warning'] = (fields[fieldName]!['warning'] as int) + 1;
-              } else {
-                fields[fieldName]!['healthy'] = (fields[fieldName]!['healthy'] as int) + 1;
-              }
-            } else {
-              fields[fieldName]!['healthy'] = (fields[fieldName]!['healthy'] as int) + 1;
-            }
-            
-            // Add plant to field's plant list
-            (fields[fieldName]!['plants'] as List<PlantStatus>).add(plantStatus);
-            fields[fieldName]!['totalPlants'] = (fields[fieldName]!['totalPlants'] as int) + 1;
+      // Initialize stats for all fields
+      for (var fieldName in fields.keys) {
+        fieldStats[fieldName] = {
+          'totalPlants': 0,
+          'healthy': 0,
+          'diseased': 0,
+          'warning': 0,
+          'plants': <PlantStatus>[],
+        };
+      }
+
+      // Process all plants in a single pass
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final fieldName = data['field_name'] as String?;
+        final statusList = data['status'] as List<dynamic>?;
+        
+        if (fieldName != null && fields.containsKey(fieldName)) {
+          // Store plant document with its ID
+          if (!newPlantDocuments.containsKey(fieldName)) {
+            newPlantDocuments[fieldName] = [];
           }
+          newPlantDocuments[fieldName]!.add({
+            'documentId': doc.id,
+            ...data,
+          });
+          
+          // Determine plant status
+          PlantStatus plantStatus = PlantStatus.healthy;
+          String statusStr = 'healthy';
+          
+          if (statusList != null && statusList.isNotEmpty) {
+            statusStr = statusList[0].toString().toLowerCase();
+            if (statusStr == 'diseased') {
+              plantStatus = PlantStatus.diseased;
+              fieldStats[fieldName]!['diseased'] = (fieldStats[fieldName]!['diseased'] as int) + 1;
+            } else if (statusStr == 'warning') {
+              plantStatus = PlantStatus.warning;
+              fieldStats[fieldName]!['warning'] = (fieldStats[fieldName]!['warning'] as int) + 1;
+            } else {
+              fieldStats[fieldName]!['healthy'] = (fieldStats[fieldName]!['healthy'] as int) + 1;
+            }
+          } else {
+            fieldStats[fieldName]!['healthy'] = (fieldStats[fieldName]!['healthy'] as int) + 1;
+          }
+          
+          // Add plant to field's plant list
+          (fieldStats[fieldName]!['plants'] as List<PlantStatus>).add(plantStatus);
+          fieldStats[fieldName]!['totalPlants'] = (fieldStats[fieldName]!['totalPlants'] as int) + 1;
+        }
+      }
+
+      // Single setState call with all updates
+      setState(() {
+        plantDocuments.clear();
+        plantDocuments.addAll(newPlantDocuments);
+        
+        // Update field stats
+        for (var fieldName in fieldStats.keys) {
+          fields[fieldName]!.addAll(fieldStats[fieldName]!);
         }
       });
     });
@@ -203,12 +228,44 @@ class _MyGardenPageState extends State<MyGardenPage> {
     final user = _auth.currentUser;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to save fields'),
-            backgroundColor: Colors.orange,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Please sign in to save fields',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
       return;
     }
@@ -241,16 +298,105 @@ class _MyGardenPageState extends State<MyGardenPage> {
     if (user == null) return;
 
     try {
+      // First, delete all plants associated with this field
+      final plantsQuery = await _firestore
+          .collection('plant')
+          .where('userId', isEqualTo: user.uid)
+          .where('field_name', isEqualTo: fieldName)
+          .get();
+
+      // Delete all plants in batch
+      final batch = _firestore.batch();
+      for (var doc in plantsQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Then delete the field document
       final docId = '${user.uid}_${fieldName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(docId).delete();
-    } catch (e) {
+
+      // Show success notification
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting field: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Field and ${plantsQuery.docs.length} plant(s) deleted successfully',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error deleting field: $e',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }
@@ -261,26 +407,112 @@ class _MyGardenPageState extends State<MyGardenPage> {
     if (user == null) return;
 
     try {
-      // Delete old document
+      // Update all plants with the new field name
+      final plantsQuery = await _firestore
+          .collection('plant')
+          .where('userId', isEqualTo: user.uid)
+          .where('field_name', isEqualTo: oldName)
+          .get();
+
+      // Update plants in batch
+      final batch = _firestore.batch();
+      for (var doc in plantsQuery.docs) {
+        batch.update(doc.reference, {'field_name': newName});
+      }
+      await batch.commit();
+
+      // Delete old field document
       final oldDocId = '${user.uid}_${oldName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(oldDocId).delete();
 
-      // Create new document
+      // Create new field document
       final newDocId = '${user.uid}_${newName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
       await _firestore.collection('field').doc(newDocId).set({
         'userId': user.uid,
         'field_name': newName,
-        'diseased': fieldData['diseased'] ?? 0,
-        'plants': fieldData['totalPlants'] ?? 0,
       });
-    } catch (e) {
+
+      // Show success notification
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error renaming field: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Field renamed and ${plantsQuery.docs.length} plant(s) updated',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.white, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error renaming field: $e',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
       }
     }
   }
@@ -1138,10 +1370,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
   }
 
   void _showAddPlantDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AddPlantDialog(
-        fieldName: selectedField,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPlantPage(
+          fieldName: selectedField,
+        ),
       ),
     );
   }
