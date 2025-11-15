@@ -73,84 +73,125 @@ class _EditFieldDialogState extends State<EditFieldDialog> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final name = _nameController.text.trim();
-                      if (name.isEmpty) {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: true,
-                          builder: (context) => Center(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 40),
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.warning, color: Colors.white, size: 48),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Field name cannot be empty',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.fromARGB(255, 99, 144, 83),
+                          Color.fromARGB(255, 23, 147, 33),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final name = _nameController.text.trim();
+                        if (name.isEmpty) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Center(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.warning, color: Colors.white, size: 48),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        'Field name cannot be empty',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (context.mounted) {
-                            Navigator.of(context, rootNavigator: true).pop();
-                          }
-                        });
-                        return;
-                      }
-                      widget.onSave(name);
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(widget.isNew ? 'Create' : 'Save'),
+                          );
+                          Future.delayed(const Duration(seconds: 2), () {
+                            if (context.mounted) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+                          });
+                          return;
+                        }
+                        widget.onSave(name);
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(widget.isNew ? 'Create' : 'Save'),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 if (!widget.isNew && widget.onDelete != null)
-                  TextButton(
-                    onPressed: () {
-                      // confirm delete
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Delete Field'),
-                          content: const Text('Are you sure you want to delete this field?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(ctx).pop();
-                                Navigator.of(context).pop();
-                                widget.onDelete!.call();
-                              },
-                              child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color.fromARGB(255, 200, 50, 50),
+                          Color.fromARGB(255, 255, 100, 100),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextButton(
+                      onPressed: () {
+                        // confirm delete
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Field'),
+                            content: const Text('Are you sure you want to delete this field?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(ctx).pop();
+                                  Navigator.of(context).pop();
+                                  widget.onDelete!.call();
+                                },
+                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      );
-                    },
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                      ),
+                      child: const Text('Delete'),
+                    ),
                   ),
               ],
             ),
