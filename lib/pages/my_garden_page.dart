@@ -531,9 +531,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green[600]!, Colors.green[500]!],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color.fromARGB(255, 99, 144, 83),
+                    const Color.fromARGB(255, 23, 147, 33),
+                  ],
                 ),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
@@ -629,21 +632,35 @@ class _MyGardenPageState extends State<MyGardenPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            _showAddPlantDialog();
-                          },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Plant'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green[600],
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.fromARGB(255, 99, 144, 83),
+                                Color.fromARGB(255, 23, 147, 33),
+                              ],
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _showAddPlantDialog();
+                            },
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Add Plant'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                             ),
                           ),
                         ),
@@ -1233,14 +1250,38 @@ class _MyGardenPageState extends State<MyGardenPage> {
     // Determine plant status and color
     final statusList = plantData['status'] as List<dynamic>?;
     String statusStr = 'healthy';
-    Color color = Colors.green;
+    LinearGradient gradient = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color.fromARGB(255, 17, 95, 17),
+        Color.fromARGB(255, 114, 188, 114),
+      ],
+    );
+    Color shadowColor = const Color.fromARGB(255, 17, 95, 17);
     
     if (statusList != null && statusList.isNotEmpty) {
       statusStr = statusList[0].toString().toLowerCase();
       if (statusStr == 'diseased') {
-        color = Colors.red;
+        gradient = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 200, 50, 50),
+            Color.fromARGB(255, 251, 133, 133),
+          ],
+        );
+        shadowColor = const Color.fromARGB(255, 200, 50, 50);
       } else if (statusStr == 'warning') {
-        color = Colors.orange;
+        gradient = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 230, 140, 0),
+            Color.fromARGB(255, 247, 190, 117),
+          ],
+        );
+        shadowColor = const Color.fromARGB(255, 230, 140, 0);
       }
     }
 
@@ -1264,11 +1305,11 @@ class _MyGardenPageState extends State<MyGardenPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: color,
+                gradient: gradient,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.3),
+                    color: shadowColor.withValues(alpha: 0.3),
                     spreadRadius: 1,
                     blurRadius: 4,
                     offset: const Offset(0, 2),

@@ -249,9 +249,12 @@ class WeeklyReportPage extends StatelessWidget {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.green[600]!, Colors.green[500]!],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color.fromARGB(255, 99, 144, 83),
+                          const Color.fromARGB(255, 23, 147, 33),
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
