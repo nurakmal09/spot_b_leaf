@@ -246,8 +246,20 @@ class _SignUpPageState extends State<SignUpPage> {
               // Sign Up Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color.fromARGB(255, 17, 95, 17),
+                        Color.fromARGB(255, 80, 139, 80),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(30)),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () async {
                     // Validate inputs
                     if (_usernameController.text.trim().isEmpty ||
                         _emailController.text.trim().isEmpty ||
@@ -375,8 +387,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2D5016),
+                    backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -391,6 +404,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
                 ),
+              ),
               ),
               const SizedBox(height: 24),
 

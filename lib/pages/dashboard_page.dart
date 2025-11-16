@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/user_guide_dialog.dart';
 import '../services/weather_service.dart';
 import '../services/location_service.dart';
 import 'settings_page.dart';
@@ -227,12 +229,13 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
         child: Column(
           children: [
             // Header Section
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -276,6 +279,12 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            onPressed: () {
+                              UserGuideDialog.show(context);
+                            },
+                          ),
                           IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
                             onPressed: () {
