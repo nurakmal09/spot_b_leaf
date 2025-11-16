@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/user_guide_dialog.dart';
 import 'settings_page.dart';
 import 'report_details_page.dart';
 
@@ -20,13 +21,12 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Green Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+      body: Column(
+        children: [
+          // Green Header
+          Container(
+            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+            decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -69,6 +69,12 @@ class _ReportPageState extends State<ReportPage> {
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            onPressed: () {
+                              UserGuideDialog.show(context);
+                            },
+                          ),
                           IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
                             onPressed: () {
@@ -155,7 +161,6 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ],
         ),
-      ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 4),
     );
   }

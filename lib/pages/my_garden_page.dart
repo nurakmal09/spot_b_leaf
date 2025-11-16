@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/user_guide_dialog.dart';
 import 'add_plant_page.dart';
 import '../widgets/edit_field_dialog.dart';
 import '../widgets/plant_details_dialog.dart';
@@ -523,13 +524,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
     
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Green Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+      body: Column(
+        children: [
+          // Green Header
+          Container(
+            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+            decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -572,6 +572,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            onPressed: () {
+                              UserGuideDialog.show(context);
+                            },
+                          ),
                           IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
                             onPressed: () {
@@ -681,7 +687,6 @@ class _MyGardenPageState extends State<MyGardenPage> {
             ),
           ],
         ),
-      ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),
     );
   }

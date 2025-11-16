@@ -501,20 +501,27 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.red[50],
+          gradient: const LinearGradient(
+            colors: [
+              Color.fromARGB(255, 200, 50, 50),
+              Color.fromARGB(255, 255, 100, 100),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.logout, color: Colors.red[600], size: 20),
+            const Icon(Icons.logout, color: Colors.white, size: 20),
             const SizedBox(width: 8),
-            Text(
+            const Text(
               'Log Out',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.red[600],
+                color: Colors.white,
               ),
             ),
           ],
@@ -575,18 +582,35 @@ class _SettingsPageState extends State<SettingsPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              // Navigate to welcome page and clear all previous routes
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const WelcomePage()),
-                (route) => false,
-              );
-            },
-            child: Text(
-              'Log Out',
-              style: TextStyle(color: Colors.red[600]),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color.fromARGB(255, 200, 50, 50),
+                  Color.fromARGB(255, 255, 100, 100),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                // Navigate to welcome page and clear all previous routes
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const WelcomePage()),
+                  (route) => false,
+                );
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Log Out',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],

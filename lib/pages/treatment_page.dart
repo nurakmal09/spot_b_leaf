@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/user_guide_dialog.dart';
 import '../widgets/treatment_notes_dialog.dart';
 import '../auth.dart';
 import 'settings_page.dart';
@@ -178,13 +179,12 @@ class _TreatmentPageState extends State<TreatmentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Green Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+      body: Column(
+        children: [
+          // Green Header
+          Container(
+            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+            decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -227,6 +227,12 @@ class _TreatmentPageState extends State<TreatmentPage> {
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            onPressed: () {
+                              UserGuideDialog.show(context);
+                            },
+                          ),
                           IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
                             onPressed: () {
@@ -278,8 +284,15 @@ class _TreatmentPageState extends State<TreatmentPage> {
               title: 'Panama Disease (Fusarium Wilt)',
               subtitle: 'Soil-borne fungal disease causing wilting',
               riskLevel: 'High Risk',
-              riskColor: Colors.red[100]!,
-              riskTextColor: Colors.red[700]!,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromARGB(255, 245, 107, 107),
+                  Color.fromARGB(255, 237, 164, 164),
+                ],
+              ),
+              riskTextColor: Colors.red[900]!,
               treatments: [
                 'Use resistant banana varieties',
                 'Improve soil drainage and pH management',
@@ -293,8 +306,15 @@ class _TreatmentPageState extends State<TreatmentPage> {
               title: 'Cordana',
               subtitle: 'Fungal leaf spot disease',
               riskLevel: 'Medium Risk',
-              riskColor: Colors.amber[100]!,
-              riskTextColor: Colors.amber[800]!,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromARGB(255, 255, 185, 72),
+                  Color.fromARGB(255, 247, 205, 151),
+                ],
+              ),
+              riskTextColor: Colors.orange[900]!,
               treatments: [
                 'Apply copper-based fungicides',
                 'Remove infected leaves and debris',
@@ -308,8 +328,15 @@ class _TreatmentPageState extends State<TreatmentPage> {
               title: 'Pestalotiopsis',
               subtitle: 'Fungal disease causing leaf tip dieback',
               riskLevel: 'Low Risk',
-              riskColor: Colors.green[100]!,
-              riskTextColor: Colors.green[700]!,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromARGB(255, 102, 221, 102),
+                  Color.fromARGB(255, 187, 255, 187),
+                ],
+              ),
+              riskTextColor: Colors.green[900]!,
               treatments: [
                 'Prune affected leaf tips',
                 'Apply preventive fungicide sprays',
@@ -323,8 +350,15 @@ class _TreatmentPageState extends State<TreatmentPage> {
               title: 'Black Sigatoka',
               subtitle: 'Fungal disease causing dark streaks on leaves',
               riskLevel: 'High Risk',
-              riskColor: Colors.red[100]!,
-              riskTextColor: Colors.red[700]!,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromARGB(255, 245, 107, 107),
+                  Color.fromARGB(255, 237, 164, 164),
+                ],
+              ),
+              riskTextColor: Colors.red[900]!,
               treatments: [
                 'Apply systemic fungicide (Mancozeb or Chlorothalonil)',
                 'Remove severely infected leaves immediately',
@@ -338,8 +372,15 @@ class _TreatmentPageState extends State<TreatmentPage> {
               title: 'Bract Mosaic Virus',
               subtitle: 'Viral disease causing mosaic patterns on bracts',
               riskLevel: 'Medium Risk',
-              riskColor: Colors.amber[100]!,
-              riskTextColor: Colors.amber[800]!,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromARGB(255, 255, 185, 72),
+                  Color.fromARGB(255, 247, 205, 151),
+                ],
+              ),
+              riskTextColor: Colors.orange[900]!,
               treatments: [
                 'Remove and destroy infected plants',
                 'Control aphid vectors with insecticides',
@@ -353,7 +394,6 @@ class _TreatmentPageState extends State<TreatmentPage> {
             ),
           ],
         ),
-      ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
@@ -515,7 +555,7 @@ class _TreatmentPageState extends State<TreatmentPage> {
     required String title,
     required String subtitle,
     required String riskLevel,
-    required Color riskColor,
+    required LinearGradient gradient,
     required Color riskTextColor,
     required List<String> treatments,
   }) {
@@ -524,10 +564,10 @@ class _TreatmentPageState extends State<TreatmentPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: riskColor,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: riskColor.withValues(alpha: 0.5),
+          color: riskTextColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
