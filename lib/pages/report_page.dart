@@ -46,14 +46,14 @@ class _ReportPageState extends State<ReportPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Reports',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -61,8 +61,8 @@ class _ReportPageState extends State<ReportPage> {
                           Text(
                             'Analytics and insights',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
                             ),
                           ),
                         ],

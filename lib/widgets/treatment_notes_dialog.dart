@@ -176,62 +176,76 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        widget.onSave(_notesController.text);
-                        Navigator.pop(context);
-                        
-                        showDialog(
-                          context: context,
-                          barrierDismissible: true,
-                          builder: (context) => Center(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 40),
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Notes saved successfully!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color.fromARGB(255, 17, 95, 17),
+                            Color.fromARGB(255, 80, 139, 80),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          widget.onSave(_notesController.text);
+                          Navigator.pop(context);
+                          
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Center(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.white, size: 48),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        'Notes saved successfully!',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
+                          );
+                          Future.delayed(const Duration(seconds: 2), () {
+                            if (context.mounted) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        );
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (context.mounted) {
-                            Navigator.of(context, rootNavigator: true).pop();
-                          }
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ),
-                      child: const Text(
-                        'Save Notes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          'Save Notes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

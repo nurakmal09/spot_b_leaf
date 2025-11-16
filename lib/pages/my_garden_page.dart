@@ -549,14 +549,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'My Garden',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -564,8 +564,8 @@ class _MyGardenPageState extends State<MyGardenPage> {
                           Text(
                             'Tap plants for details',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -941,7 +941,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
           child: _buildStatCard(
             value: fieldData['totalPlants'].toString(),
             label: 'Total Plants',
-            color: Colors.black,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 0, 0, 0),
+                Color.fromARGB(255, 139, 141, 139),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -949,7 +956,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
           child: _buildStatCard(
             value: fieldData['healthy'].toString(),
             label: 'Healthy',
-            color: Colors.green,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 17, 95, 17),
+                Color.fromARGB(255, 113, 192, 113),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -957,7 +971,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
           child: _buildStatCard(
             value: fieldData['diseased'].toString(),
             label: 'Diseased',
-            color: Colors.red,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 200, 50, 50),
+                Color.fromARGB(255, 239, 131, 131),
+              ],
+            ),
           ),
         ),
       ],
@@ -967,7 +988,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
   Widget _buildStatCard({
     required String value,
     required String label,
-    required Color color,
+    required Gradient gradient,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -984,12 +1005,17 @@ class _MyGardenPageState extends State<MyGardenPage> {
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: color,
+          ShaderMask(
+            shaderCallback: (bounds) => gradient.createShader(
+              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -1368,9 +1394,39 @@ class _MyGardenPageState extends State<MyGardenPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildLegendItem(Colors.green, 'Healthy'),
-              _buildLegendItem(Colors.orange, 'Warning'),
-              _buildLegendItem(Colors.red, 'Diseased'),
+              _buildLegendItem(
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 17, 95, 17),
+                    Color.fromARGB(255, 80, 139, 80),
+                  ],
+                ),
+                'Healthy',
+              ),
+              _buildLegendItem(
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 230, 140, 0),
+                    Color.fromARGB(255, 255, 180, 80),
+                  ],
+                ),
+                'Warning',
+              ),
+              _buildLegendItem(
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 200, 50, 50),
+                    Color.fromARGB(255, 255, 100, 100),
+                  ],
+                ),
+                'Diseased',
+              ),
             ],
           ),
         ],
@@ -1378,7 +1434,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
     );
   }
 
-  Widget _buildLegendItem(Color color, String label) {
+  Widget _buildLegendItem(Gradient gradient, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1386,7 +1442,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: color,
+            gradient: gradient,
             shape: BoxShape.circle,
           ),
         ),
