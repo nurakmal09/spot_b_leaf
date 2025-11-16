@@ -204,14 +204,14 @@ class _TreatmentPageState extends State<TreatmentPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Treatment Guide',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -219,8 +219,8 @@ class _TreatmentPageState extends State<TreatmentPage> {
                           Text(
                             'Disease management solutions',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
                             ),
                           ),
                         ],

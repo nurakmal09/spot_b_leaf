@@ -288,24 +288,71 @@ class _AddPlantPageState extends State<AddPlantPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[600],
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Add New Plant',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header Section
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color.fromARGB(255, 99, 144, 83),
+                    const Color.fromARGB(255, 23, 147, 33),
+                  ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Add New Plant',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Create plant record',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Scrollable Content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -466,7 +513,14 @@ class _AddPlantPageState extends State<AddPlantPage> {
                         child: _buildStatusButton(
                           'Healthy',
                           selectedStatus == 'Healthy',
-                          Colors.green,
+                          const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color.fromARGB(255, 17, 95, 17),
+                              Color.fromARGB(255, 80, 139, 80),
+                            ],
+                          ),
                           () => setState(() => selectedStatus = 'Healthy'),
                         ),
                       ),
@@ -475,7 +529,14 @@ class _AddPlantPageState extends State<AddPlantPage> {
                         child: _buildStatusButton(
                           'Warning',
                           selectedStatus == 'Warning',
-                          Colors.orange,
+                          const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color.fromARGB(255, 230, 140, 0),
+                              Color.fromARGB(255, 255, 180, 80),
+                            ],
+                          ),
                           () => setState(() => selectedStatus = 'Warning'),
                         ),
                       ),
@@ -484,7 +545,14 @@ class _AddPlantPageState extends State<AddPlantPage> {
                         child: _buildStatusButton(
                           'Diseased',
                           selectedStatus == 'Diseased',
-                          Colors.red,
+                          const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color.fromARGB(255, 200, 50, 50),
+                              Color.fromARGB(255, 255, 100, 100),
+                            ],
+                          ),
                           () => setState(() => selectedStatus = 'Diseased'),
                         ),
                       ),
@@ -526,7 +594,8 @@ class _AddPlantPageState extends State<AddPlantPage> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
@@ -543,33 +612,47 @@ class _AddPlantPageState extends State<AddPlantPage> {
         child: SafeArea(
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _savePlantToFirestore,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 17, 95, 17),
+                    Color.fromARGB(255, 80, 139, 80),
+                  ],
                 ),
-                elevation: 0,
+                borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
-              child: _isSaving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _savePlantToFirestore,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Add Plant',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'Add Plant',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              ),
             ),
           ),
         ),
@@ -628,7 +711,7 @@ class _AddPlantPageState extends State<AddPlantPage> {
   Widget _buildStatusButton(
     String label,
     bool isSelected,
-    Color color,
+    LinearGradient gradient,
     VoidCallback onTap,
   ) {
     return GestureDetector(
@@ -636,10 +719,11 @@ class _AddPlantPageState extends State<AddPlantPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white,
+          gradient: isSelected ? gradient : null,
+          color: isSelected ? null : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : Colors.grey[300]!,
+            color: isSelected ? Colors.transparent : Colors.grey[300]!,
             width: 2,
           ),
         ),

@@ -260,7 +260,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             'Farm Dashboard',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -269,7 +269,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             'Real-time monitoring',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 14,
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -385,7 +385,7 @@ class _DashboardPageState extends State<DashboardPage> {
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blue[500]!, Colors.blue[400]!],
+            colors: [Colors.blue[700]!, Colors.blue[200]!],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -748,7 +748,14 @@ class _DashboardPageState extends State<DashboardPage> {
         Expanded(
           child: _buildMetricCard(
             icon: Icons.eco,
-            color: Colors.green,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 0, 0, 0),
+                Color.fromARGB(255, 139, 141, 139),
+              ],
+            ),
             value: totalPlants.toString(),
             label: 'Total Plants',
           ),
@@ -757,7 +764,14 @@ class _DashboardPageState extends State<DashboardPage> {
         Expanded(
           child: _buildMetricCard(
             icon: Icons.check_circle,
-            color: Colors.green,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 17, 95, 17),
+                Color.fromARGB(255, 80, 139, 80),
+              ],
+            ),
             value: healthyPlants.toString(),
             label: 'Healthy',
           ),
@@ -766,7 +780,14 @@ class _DashboardPageState extends State<DashboardPage> {
         Expanded(
           child: _buildMetricCard(
             icon: Icons.warning,
-            color: Colors.red,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.fromARGB(255, 200, 50, 50),
+                Color.fromARGB(255, 255, 100, 100),
+              ],
+            ),
             value: diseasedPlants.toString(),
             label: 'Diseased',
           ),
@@ -777,7 +798,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildMetricCard({
     required IconData icon,
-    required Color color,
+    required Gradient gradient,
     required String value,
     required String label,
   }) {
@@ -799,17 +820,23 @@ class _DashboardPageState extends State<DashboardPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              gradient: gradient,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
           const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          ShaderMask(
+            shaderCallback: (bounds) => gradient.createShader(
+              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -868,14 +895,28 @@ class _DashboardPageState extends State<DashboardPage> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildLegendItem(
-                Colors.green,
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 17, 95, 17),
+                    Color.fromARGB(255, 121, 193, 121),
+                  ],
+                ),
                 'Healthy',
                 totalPlants > 0 
                     ? '${((healthyPlants / totalPlants) * 100).toStringAsFixed(0)}%'
                     : '0%',
               ),
               _buildLegendItem(
-                Colors.red,
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromARGB(255, 200, 50, 50),
+                    Color.fromARGB(255, 248, 150, 150),
+                  ],
+                ),
                 'Diseased',
                 totalPlants > 0
                     ? '${((diseasedPlants / totalPlants) * 100).toStringAsFixed(0)}%'
@@ -888,14 +929,14 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildLegendItem(Color color, String label, String percentage) {
+  Widget _buildLegendItem(Gradient gradient, String label, String percentage) {
     return Row(
       children: [
         Container(
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: color,
+            gradient: gradient,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -949,9 +990,14 @@ class DonutChartPainter extends CustomPainter {
     final healthyAngle = (healthy / total) * 2 * math.pi;
     final diseasedAngle = (diseased / total) * 2 * math.pi;
 
-    // Draw healthy segment (green)
+    // Draw healthy segment (green gradient)
     final healthyPaint = Paint()
-      ..color = Colors.green
+      ..shader = const LinearGradient(
+        colors: [
+          Color.fromARGB(255, 17, 95, 17),
+          Color.fromARGB(255, 104, 172, 104),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -964,9 +1010,14 @@ class DonutChartPainter extends CustomPainter {
       healthyPaint,
     );
 
-    // Draw diseased segment (red)
+    // Draw diseased segment (red gradient)
     final diseasedPaint = Paint()
-      ..color = Colors.red
+      ..shader = const LinearGradient(
+        colors: [
+          Color.fromARGB(255, 202, 57, 57),
+          Color.fromARGB(255, 242, 154, 154),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
