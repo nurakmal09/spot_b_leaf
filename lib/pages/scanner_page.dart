@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart' as mlkit;
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/plant_details_dialog.dart';
+import '../services/disease_detection_service.dart';
 import 'settings_page.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -35,11 +36,20 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   
   // Image picker
   final ImagePicker _picker = ImagePicker();
+  
+  // Disease detection
+  final DiseaseDetectionService _diseaseDetectionService = DiseaseDetectionService();
+  DiseaseDetectionResult? _diseaseResult;
+  bool _isDetecting = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Initialize disease detection service
+    _diseaseDetectionService.initialize().catchError((e) {
+      debugPrint('Failed to initialize disease detection: $e');
+    });
     // Only initialize camera if in disease mode
     if (isDiseaseMode) {
       _initializeCamera();
@@ -89,6 +99,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _qrController?.dispose();
     _cameraController?.dispose();
+    _diseaseDetectionService.dispose();
     super.dispose();
   }
 
@@ -187,16 +198,37 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   Future<void> _captureImage() async {
     if (isDiseaseMode && _cameraController != null && _cameraController!.value.isInitialized) {
       try {
+        setState(() {
+          _isDetecting = true;
+        });
+
         final image = await _cameraController!.takePicture();
-        // TODO: Send image to disease detection API
         debugPrint('Image captured: ${image.path}');
         
+        // Run disease detection
+        final result = await _diseaseDetectionService.detectDisease(image.path);
+        debugPrint('Detection result: $result');
+        
         setState(() {
+          _diseaseResult = result;
           showResult = true;
           isScanning = false;
+          _isDetecting = false;
         });
       } catch (e) {
-        debugPrint('Error capturing image: $e');
+        debugPrint('Error capturing/detecting image: $e');
+        setState(() {
+          _isDetecting = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error detecting disease: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -214,11 +246,36 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
         debugPrint('Image selected: ${image.path}');
         
         if (isDiseaseMode) {
-          // Disease mode - just show placeholder result
+          // Disease mode - run detection
           setState(() {
-            showResult = true;
-            isScanning = false;
+            _isDetecting = true;
           });
+
+          try {
+            final result = await _diseaseDetectionService.detectDisease(image.path);
+            debugPrint('Detection result: $result');
+            
+            setState(() {
+              _diseaseResult = result;
+              showResult = true;
+              isScanning = false;
+              _isDetecting = false;
+            });
+          } catch (e) {
+            debugPrint('Error detecting disease: $e');
+            setState(() {
+              _isDetecting = false;
+            });
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error detecting disease: ${e.toString()}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
         } else {
           // QR mode - decode QR code from image
           setState(() {
@@ -289,6 +346,8 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       _scannedPlantData = null;
       _scannedPlantDocId = null;
       _isLoadingPlantData = false;
+      _diseaseResult = null;
+      _isDetecting = false;
       
       // Resume camera/scanner
       if (!isDiseaseMode && _qrController != null) {
@@ -465,7 +524,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                         ),
 
                       // Capture/Scan button
-                      if (isScanning && !showResult)
+                      if (isScanning && !showResult && !_isDetecting)
                         Positioned(
                           bottom: 20,
                           child: FloatingActionButton.extended(
@@ -486,13 +545,13 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
             ),
 
             // Result Card
-            if (showResult || _isLoadingPlantData)
+            if (showResult || _isLoadingPlantData || _isDetecting)
               Positioned(
                 bottom: 80,
                 left: 20,
                 right: 20,
-                child: _isLoadingPlantData
-                    ? _buildLoadingCard()
+                child: _isLoadingPlantData || _isDetecting
+                    ? _buildLoadingCard(_isDetecting ? 'Analyzing image...' : 'Loading plant data...')
                     : (isDiseaseMode
                         ? _buildDiseaseResultCard()
                         : _buildQRResultCard()),
@@ -579,7 +638,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLoadingCard() {
+  Widget _buildLoadingCard(String message) {
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
@@ -600,7 +659,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
           Text(
-            'Loading plant data...',
+            message,
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[700],
@@ -878,6 +937,38 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   }
 
   Widget _buildDiseaseResultCard() {
+    final result = _diseaseResult;
+    
+    if (result == null) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('No detection result available'),
+      );
+    }
+
+    // Determine color based on severity
+    Color severityColor = Colors.green;
+    Color severityBgColor = Colors.green[50]!;
+    IconData severityIcon = Icons.check_circle;
+    
+    if (result.severity == 'High Risk') {
+      severityColor = Colors.red[600]!;
+      severityBgColor = Colors.red[50]!;
+      severityIcon = Icons.error;
+    } else if (result.severity == 'Medium Risk') {
+      severityColor = Colors.orange[600]!;
+      severityBgColor = Colors.orange[50]!;
+      severityIcon = Icons.warning;
+    } else if (result.severity == 'Low Risk') {
+      severityColor = Colors.yellow[700]!;
+      severityBgColor = Colors.yellow[50]!;
+      severityIcon = Icons.info;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -900,29 +991,30 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red[50],
+                  color: severityBgColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.error, color: Colors.red[600], size: 32),
+                child: Icon(severityIcon, color: severityColor, size: 32),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Disease Detected',
-                      style: TextStyle(
+                      result.diseaseName,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Black Sigatoka',
+                      result.severity,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey,
+                        color: severityColor,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -931,10 +1023,12 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 16),
+          
+          // Confidence Score
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.green[50],
+              color: result.isReliable ? Colors.green[50] : Colors.orange[50],
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -942,7 +1036,11 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green[600], size: 20),
+                    Icon(
+                      result.isReliable ? Icons.check_circle : Icons.warning,
+                      color: result.isReliable ? Colors.green[600] : Colors.orange[600],
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Confidence Score',
@@ -955,34 +1053,69 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                   ],
                 ),
                 Text(
-                  '98%',
+                  result.confidencePercentage,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green[600],
+                    color: result.isReliable ? Colors.green[600] : Colors.orange[600],
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: 0.98,
+              value: result.confidence,
               minHeight: 8,
               backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                result.isReliable ? Colors.green[600]! : Colors.orange[600]!,
+              ),
             ),
           ),
+          
+          // Recommendation
+          if (!result.isReliable) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Low confidence. Consider retaking the photo in better lighting.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 16),
+          
+          // Action buttons
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: _resetScanner,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.green[600],
+                    foregroundColor: severityColor,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1001,10 +1134,11 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Navigate to plant details
+                    // Navigate to treatment page
+                    Navigator.pushNamed(context, '/treatment');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
+                    backgroundColor: severityColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -1012,7 +1146,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                     ),
                   ),
                   child: const Text(
-                    'View Details',
+                    'Treatment',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
