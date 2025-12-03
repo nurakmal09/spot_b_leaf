@@ -1,0 +1,11 @@
+                precision    recall  f1-score   support
+
+       Cordana     0.1986    0.9073    0.3258       151
+       Healthy     0.6517    0.3069    0.4173       189
+Panama Disease     0.0000    0.0000    0.0000       190
+Pestalotiopsis     0.0000    0.0000    0.0000        51
+      Sigatoka     0.0000    0.0000    0.0000       198
+
+      accuracy                         0.2503       779
+     macro avg     0.1700    0.2428    0.1486       779
+  weighted avg     0.1966    0.2503    0.1644       779
