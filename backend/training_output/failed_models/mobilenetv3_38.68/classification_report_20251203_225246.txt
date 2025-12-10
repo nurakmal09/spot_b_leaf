@@ -1,0 +1,12 @@
+                    precision    recall  f1-score   support
+
+Bract Mosaic Virus     0.4984    0.6500    0.5642       240
+           Cordana     0.4724    0.2500    0.3270       240
+           Healthy     0.6179    0.5458    0.5796       240
+    Panama Disease     0.3023    0.0542    0.0919       240
+    Pestalotiopsis     0.2330    0.4708    0.3117       240
+          sigatoka     0.3154    0.3417    0.3280       240
+
+          accuracy                         0.3854      1440
+         macro avg     0.4066    0.3854    0.3671      1440
+      weighted avg     0.4066    0.3854    0.3671      1440

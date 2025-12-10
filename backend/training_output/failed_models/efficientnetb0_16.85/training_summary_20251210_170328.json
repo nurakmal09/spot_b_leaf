@@ -1,0 +1,31 @@
+{
+  "timestamp": "20251210_170328",
+  "model": "EfficientNetB0",
+  "dataset": {
+    "total_images": 2654,
+    "train_samples": 1264,
+    "val_samples": 96
+  },
+  "hyperparameters": {
+    "batch_size": 16,
+    "epochs": 31,
+    "initial_learning_rate": 0.0005,
+    "image_size": "224x224"
+  },
+  "final_metrics": {
+    "train_accuracy": 0.16111111640930176,
+    "val_accuracy": 0.1666666716337204,
+    "train_loss": 1.8759381771087646,
+    "val_loss": 1.7983179092407227
+  },
+  "per_class_accuracy": {
+    "Black Sigatoka Disease": 0.0,
+    "Bract Mosaic Virus Disease": 0.0,
+    "Cordana Disease": 0.0,
+    "Healthy Leaf": 0.0,
+    "Panama Disease": 1.0,
+    "Pestalotiopsis Disease": 0.0
+  },
+  "best_epoch": 18,
+  "best_val_accuracy": 0.16851851344108582
+}

@@ -1,0 +1,30 @@
+{
+  "timestamp": "20251203_202627",
+  "model": "MobileNetV3Large",
+  "dataset": {
+    "total_images": 2654,
+    "train_samples": 1856,
+    "val_samples": 160
+  },
+  "hyperparameters": {
+    "batch_size": 32,
+    "epochs": 72,
+    "initial_learning_rate": 0.0005,
+    "image_size": "224x224"
+  },
+  "final_metrics": {
+    "train_accuracy": 0.18849314749240875,
+    "val_accuracy": 0.2490372210741043,
+    "train_loss": 1.7790799140930176,
+    "val_loss": 1.5481220483779907
+  },
+  "per_class_accuracy": {
+    "Cordana": 0.9072847682119205,
+    "Healthy": 0.30687830687830686,
+    "Panama Disease": 0.0,
+    "Pestalotiopsis": 0.0,
+    "Sigatoka": 0.0
+  },
+  "best_epoch": 63,
+  "best_val_accuracy": 0.26957637071609497
+}
