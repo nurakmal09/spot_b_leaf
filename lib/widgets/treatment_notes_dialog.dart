@@ -188,7 +188,7 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
                               ),
                             );
 
-                            if (confirm == true && widget.onDelete != null) {
+                            if (confirm == true) {
                               widget.onDelete!();
                               if (context.mounted) {
                                 Navigator.pop(context);
