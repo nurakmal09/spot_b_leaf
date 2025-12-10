@@ -1,7 +1,7 @@
 """
-MobileNetV3 Training Pipeline for Banana Leaf Disease Classification
+Custom CNN Training Pipeline for Banana Leaf Disease Classification
 
-This script trains a MobileNetV3 model on the banana leaf disease dataset
+This script trains a custom lightweight CNN model on the banana leaf disease dataset
 and generates comprehensive analysis including:
 - Training/Validation Accuracy & Loss graphs
 - Confusion Matrix
@@ -21,7 +21,6 @@ from pathlib import Path
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, models
-from tensorflow.keras.applications import MobileNetV3Large
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, CSVLogger
 
@@ -51,13 +50,13 @@ class Config:
     INPUT_SHAPE = (IMG_HEIGHT, IMG_WIDTH, CHANNELS)
     
     # Training parameters
-    BATCH_SIZE = 32
+    BATCH_SIZE = 16  # Reduced from 32 to prevent memory errors
     EPOCHS = 100
     LEARNING_RATE = 0.0005  # Balanced learning rate
     
     # Augmentation parameters
-    MIN_SAMPLES_PER_CLASS = 800  # Target minimum samples per class
-    AUGMENT_THRESHOLD = 800  # Augment classes with fewer than this many images
+    MIN_SAMPLES_PER_CLASS = 300  # Target minimum samples per class
+    AUGMENT_THRESHOLD = 300  # Augment classes with fewer than this many images
     
     # Data split
     TRAIN_SPLIT = 0.70
@@ -66,12 +65,12 @@ class Config:
     
     # Class names (must match folder names)
     CLASS_NAMES = [
-        'Bract Mosaic Virus',
-        'Cordana',
-        'Healthy',
+        'Black Sigatoka Disease',
+        'Bract Mosaic Virus Disease',
+        'Cordana Disease',
+        'Healthy Leaf',
         'Panama Disease',
-        'Pestalotiopsis',
-        'sigatoka'
+        'Pestalotiopsis Disease'
     ]
     
     def __init__(self):
@@ -99,10 +98,7 @@ def augment_minority_classes():
     # Check if already augmented
     if augmented_dir.exists():
         print(f"⚠️  Augmented dataset already exists at {augmented_dir}")
-        response = input("Do you want to recreate it? (y/n): ")
-        if response.lower() != 'y':
-            print("Using existing augmented dataset...")
-            return augmented_dir
+        print("🔄 Removing old augmented dataset to recreate with updated parameters...")
         shutil.rmtree(augmented_dir)
     
     augmented_dir.mkdir(parents=True, exist_ok=True)
@@ -243,13 +239,8 @@ def compute_class_weights(train_generator):
         y=train_generator.classes
     )
     
-    # Moderate boost for minority classes (Pestalotiopsis)
-    class_weight_dict = {}
-    for idx, weight in enumerate(class_weights):
-        sample_count = np.sum(train_generator.classes == idx)
-        if sample_count < 200:
-            weight *= 1.5  # Moderate boost for Pestalotiopsis
-        class_weight_dict[idx] = weight
+    # Use standard balanced weights without additional boosting
+    class_weight_dict = {idx: weight for idx, weight in enumerate(class_weights)}
     
     print("Class weights:")
     for class_name, idx in train_generator.class_indices.items():
@@ -258,45 +249,65 @@ def compute_class_weights(train_generator):
     return class_weight_dict
 
 
-def build_mobilenetv3_model():
-    """Build MobileNetV3 model with custom classification head"""
-    print("\n🏗️  Building MobileNetV3 model...")
+def build_custom_cnn_model():
+    """Build custom lightweight CNN model for small datasets"""
+    print("\n🏗️  Building custom CNN model...")
     
-    # Load pre-trained MobileNetV3Large
-    base_model = MobileNetV3Large(
-        input_shape=config.INPUT_SHAPE,
-        include_top=False,
-        weights='imagenet'
-    )
-    
-    # Freeze base model layers initially (will unfreeze later for fine-tuning)
-    base_model.trainable = False
-    
-    # Build custom classification head
     model = models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
+        # Input layer
+        layers.Input(shape=config.INPUT_SHAPE),
+        
+        # Block 1
+        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.25),
+        
+        # Block 2
+        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.25),
+        
+        # Block 3
+        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
         layers.Dropout(0.3),
+        
+        # Block 4
+        layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.3),
+        
+        # Dense layers
+        layers.Flatten(),
         layers.Dense(256, activation='relu'),
         layers.BatchNormalization(),
-        layers.Dropout(0.4),
+        layers.Dropout(0.5),
         layers.Dense(128, activation='relu'),
         layers.BatchNormalization(),
-        layers.Dropout(0.3),
+        layers.Dropout(0.4),
+        
+        # Output layer
         layers.Dense(len(config.CLASS_NAMES), activation='softmax')
     ])
     
-    print(f"✅ Model built with {len(config.CLASS_NAMES)} output classes")
+    print(f"✅ Custom CNN built with {len(config.CLASS_NAMES)} output classes")
     
     return model
 
 
-def compile_model(model):
+def compile_model(model, learning_rate=None):
     """Compile the model with optimizer and loss function"""
-    print("\n⚙️  Compiling model...")
+    if learning_rate is None:
+        learning_rate = config.LEARNING_RATE
+    
+    print(f"\n⚙️  Compiling model with learning rate: {learning_rate}...")
     
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=config.LEARNING_RATE),
+        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
         loss='categorical_crossentropy',
         metrics=['accuracy', keras.metrics.TopKCategoricalAccuracy(k=2, name='top_2_accuracy')]
     )
@@ -353,7 +364,7 @@ def plot_training_history(history, timestamp):
     
     # Create figure with subplots
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('MobileNetV3 Training Analysis', fontsize=16, fontweight='bold')
+    fig.suptitle('Custom CNN Training Analysis', fontsize=16, fontweight='bold')
     
     # Plot 1: Accuracy
     axes[0, 0].plot(history.history['accuracy'], label='Train Accuracy', linewidth=2)
@@ -483,7 +494,7 @@ def convert_to_tflite(model, timestamp, best_val_accuracy):
     
     # Create model name with accuracy
     accuracy_pct = f"{best_val_accuracy * 100:.2f}"
-    model_name = f'mobilenetv3_{accuracy_pct}'
+    model_name = f'customcnn_{accuracy_pct}'
     
     # Save TFLite model
     tflite_path = config.MODELS_DIR / f'{model_name}.tflite'
@@ -507,7 +518,7 @@ def save_training_summary(history, evaluation_results, timestamp):
     """Save comprehensive training summary"""
     summary = {
         'timestamp': timestamp,
-        'model': 'MobileNetV3Large',
+        'model': 'CustomCNN',
         'dataset': {
             'total_images': 2654,
             'train_samples': history.params['steps'] * config.BATCH_SIZE,
@@ -542,7 +553,7 @@ def save_training_summary(history, evaluation_results, timestamp):
 def main():
     """Main training pipeline"""
     print("=" * 80)
-    print("🍌 BANANA LEAF DISEASE DETECTION - MobileNetV3 Training Pipeline")
+    print("🍌 BANANA LEAF DISEASE DETECTION - Custom CNN Training Pipeline")
     print("=" * 80)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -564,7 +575,7 @@ def main():
     class_weights = compute_class_weights(train_gen)
     
     # 4. Build model
-    model = build_mobilenetv3_model()
+    model = build_custom_cnn_model()
     model = compile_model(model)
     
     # Print model summary
@@ -576,7 +587,7 @@ def main():
     
     # 6. Train model
     print("\n🚀 Starting training...")
-    print("=" * 80)
+    print("="*80)
     
     history = model.fit(
         train_gen,
