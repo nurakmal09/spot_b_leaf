@@ -70,56 +70,75 @@ class _TreatmentPageState extends State<TreatmentPage> {
     });
   }
 
+  // Helper method to generate document ID for treatment notes
+  String _getDocumentId(String userId, String diseaseTitle) {
+    return '${userId}_${diseaseTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+  }
+
+  // Helper method to show feedback dialog
+  void _showFeedbackDialog({
+    required Color backgroundColor,
+    required IconData icon,
+    required String message,
+    int durationSeconds = 2,
+  }) {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 40),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Future.delayed(Duration(seconds: durationSeconds), () {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
+  }
+
   // Save notes to Firestore
   Future<void> _saveNoteToFirestore(String diseaseTitle, String notes) async {
     final user = _auth.currentUser;
     if (user == null) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Please sign in to save notes',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        Future.delayed(const Duration(seconds: 2), () {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        });
-      }
+      _showFeedbackDialog(
+        backgroundColor: Colors.orange,
+        icon: Icons.warning,
+        message: 'Please sign in to save notes',
+      );
       return;
     }
 
     try {
       // Create a document ID based on userId and diseaseTitle
-      final docId = '${user.uid}_${diseaseTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      final docId = _getDocumentId(user.uid, diseaseTitle);
       
       await _firestore.collection('treatment_notes').doc(docId).set({
         'userId': user.uid,
@@ -132,46 +151,12 @@ class _TreatmentPageState extends State<TreatmentPage> {
         diseaseNotes[diseaseTitle] = notes;
       });
     } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error, color: Colors.white, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error saving notes: $e',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        Future.delayed(const Duration(seconds: 3), () {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        });
-      }
+      _showFeedbackDialog(
+        backgroundColor: Colors.red,
+        icon: Icons.error,
+        message: 'Error saving notes: $e',
+        durationSeconds: 3,
+      );
     }
   }
 
@@ -179,52 +164,17 @@ class _TreatmentPageState extends State<TreatmentPage> {
   Future<void> _deleteNoteFromFirestore(String diseaseTitle) async {
     final user = _auth.currentUser;
     if (user == null) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Please sign in to delete notes',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        Future.delayed(const Duration(seconds: 2), () {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        });
-      }
+      _showFeedbackDialog(
+        backgroundColor: Colors.orange,
+        icon: Icons.warning,
+        message: 'Please sign in to delete notes',
+      );
       return;
     }
 
     try {
       // Create a document ID based on userId and diseaseTitle
-      final docId = '${user.uid}_${diseaseTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      final docId = _getDocumentId(user.uid, diseaseTitle);
       
       await _firestore.collection('treatment_notes').doc(docId).delete();
 
@@ -232,87 +182,18 @@ class _TreatmentPageState extends State<TreatmentPage> {
         diseaseNotes[diseaseTitle] = '';
       });
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Notes deleted successfully!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        Future.delayed(const Duration(seconds: 2), () {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        });
-      }
+      _showFeedbackDialog(
+        backgroundColor: Colors.green,
+        icon: Icons.check_circle,
+        message: 'Notes deleted successfully!',
+      );
     } catch (e) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error, color: Colors.white, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error deleting notes: $e',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        Future.delayed(const Duration(seconds: 3), () {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        });
-      }
+      _showFeedbackDialog(
+        backgroundColor: Colors.red,
+        icon: Icons.error,
+        message: 'Error deleting notes: $e',
+        durationSeconds: 3,
+      );
     }
   }
 
