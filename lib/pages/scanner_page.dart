@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart' as mlkit;
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/plant_details_dialog.dart';
+import '../widgets/plant_selection_dialog.dart';
 import '../services/disease_detection_service.dart';
 import 'settings_page.dart';
 
@@ -41,6 +42,10 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   final DiseaseDetectionService _diseaseDetectionService = DiseaseDetectionService();
   DiseaseDetectionResult? _diseaseResult;
   bool _isDetecting = false;
+  
+  // Selected plant for disease detection
+  String? _selectedPlantId;
+  Map<String, dynamic>? _selectedPlantData;
 
   @override
   void initState() {
@@ -173,6 +178,8 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       showResult = false;
       isScanning = true;
       _qrCodeResult = null;
+      _selectedPlantId = null;
+      _selectedPlantData = null;
     });
     
     // Dispose and reinitialize based on mode
@@ -195,8 +202,31 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<bool> _showPlantSelection() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const PlantSelectionDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedPlantId = result['plantId'];
+        _selectedPlantData = result['plantData'];
+      });
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _captureImage() async {
     if (isDiseaseMode && _cameraController != null && _cameraController!.value.isInitialized) {
+      // Check if plant is selected
+      if (_selectedPlantId == null) {
+        final selected = await _showPlantSelection();
+        if (!selected) return; // User cancelled selection
+      }
+
       try {
         setState(() {
           _isDetecting = true;
@@ -235,6 +265,12 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
 
   Future<void> _uploadFromGallery() async {
     try {
+      // Check if plant is selected for disease mode
+      if (isDiseaseMode && _selectedPlantId == null) {
+        final selected = await _showPlantSelection();
+        if (!selected) return; // User cancelled selection
+      }
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1920,
@@ -371,28 +407,32 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isDiseaseMode ? 'Disease Scanner' : 'QR Code Scanner',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isDiseaseMode ? 'Disease Scanner' : 'QR Code Scanner',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isDiseaseMode
-                                ? 'Position leaf within frame'
-                                : 'Align QR code within frame',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                            const SizedBox(height: 4),
+                            Text(
+                              isDiseaseMode
+                                  ? (_selectedPlantId != null 
+                                      ? 'Plant: ${_selectedPlantData?['plant_id'] ?? 'Selected'}'
+                                      : 'Select plant first')
+                                  : 'Align QR code within frame',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -442,6 +482,32 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                 ),
 
                 const SizedBox(height: 20),
+
+                // Select/Change Plant Button (Disease Mode Only)
+                if (isDiseaseMode)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await _showPlantSelection();
+                      },
+                      icon: Icon(
+                        _selectedPlantId != null ? Icons.change_circle : Icons.eco,
+                        size: 18,
+                      ),
+                      label: Text(_selectedPlantId != null ? 'Change Plant' : 'Select Plant'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.withValues(alpha: 0.9),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (isDiseaseMode) const SizedBox(height: 12),
 
                 // Upload from Gallery Button
                 Padding(

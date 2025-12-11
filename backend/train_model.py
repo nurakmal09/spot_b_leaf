@@ -11,6 +11,7 @@ and generates comprehensive analysis including:
 
 import os
 import json
+import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -514,7 +515,7 @@ def convert_to_tflite(model, timestamp, best_val_accuracy):
     return tflite_path, labels_path, model_name
 
 
-def save_training_summary(history, evaluation_results, timestamp):
+def save_training_summary(history, evaluation_results, timestamp, training_duration=None):
     """Save comprehensive training summary"""
     summary = {
         'timestamp': timestamp,
@@ -530,6 +531,7 @@ def save_training_summary(history, evaluation_results, timestamp):
             'initial_learning_rate': config.LEARNING_RATE,
             'image_size': f"{config.IMG_HEIGHT}x{config.IMG_WIDTH}"
         },
+        'training_duration': training_duration,
         'final_metrics': {
             'train_accuracy': float(history.history['accuracy'][-1]),
             'val_accuracy': float(history.history['val_accuracy'][-1]),
@@ -556,7 +558,12 @@ def main():
     print("🍌 BANANA LEAF DISEASE DETECTION - Custom CNN Training Pipeline")
     print("=" * 80)
     
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Start timing
+    start_time = time.time()
+    start_datetime = datetime.now()
+    timestamp = start_datetime.strftime('%Y%m%d_%H%M%S')
+    
+    print(f"\n⏱️  Training started at: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # 1. Load dataset info
     dataset_info = load_dataset_info()
@@ -589,6 +596,8 @@ def main():
     print("\n🚀 Starting training...")
     print("="*80)
     
+    training_start = time.time()
+    
     history = model.fit(
         train_gen,
         validation_data=val_gen,
@@ -598,7 +607,11 @@ def main():
         verbose=1
     )
     
+    training_end = time.time()
+    training_duration_seconds = training_end - training_start
+    
     print("\n✅ Training completed!")
+    print(f"⏱️  Training time: {training_duration_seconds/3600:.2f} hours ({training_duration_seconds/60:.1f} minutes)")
     
     # 7. Plot training history
     plot_training_history(history, timestamp)
@@ -612,13 +625,30 @@ def main():
     # 9. Convert to TFLite
     tflite_path, labels_path, model_name = convert_to_tflite(model, timestamp, best_val_accuracy)
     
-    # 10. Save training summary
-    summary = save_training_summary(history, evaluation_results, timestamp)
+    # 10. Calculate total duration
+    total_duration_seconds = time.time() - start_time
+    end_datetime = datetime.now()
+    
+    # Format training duration
+    training_duration = {
+        'total_seconds': float(training_duration_seconds),
+        'total_minutes': float(training_duration_seconds / 60),
+        'total_hours': float(training_duration_seconds / 3600),
+        'formatted': f"{int(training_duration_seconds // 3600)}h {int((training_duration_seconds % 3600) // 60)}m {int(training_duration_seconds % 60)}s"
+    }
+    
+    # Save training summary
+    summary = save_training_summary(history, evaluation_results, timestamp, training_duration)
     
     # Final summary
     print("\n" + "=" * 80)
     print("🎉 TRAINING PIPELINE COMPLETED SUCCESSFULLY!")
     print("=" * 80)
+    print(f"\n⏱️  Timeline:")
+    print(f"  Started: {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Ended: {end_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Training Duration: {training_duration['formatted']}")
+    print(f"  Total Pipeline Duration: {int(total_duration_seconds // 3600)}h {int((total_duration_seconds % 3600) // 60)}m {int(total_duration_seconds % 60)}s")
     print(f"\n📊 Final Results:")
     print(f"  Model Name: {model_name}")
     print(f"  Best Validation Accuracy: {summary['best_val_accuracy']*100:.2f}%")

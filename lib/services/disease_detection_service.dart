@@ -4,17 +4,17 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
 class DiseaseDetectionService {
-  static const String modelPath = 'assets/models/spotbleaf_model_50epochs.tflite';
-  static const String labelsPath = 'assets/models/spotbleaf_model_labels.txt';
+  static const String modelPath = 'assets/models/customcnn_94.07.tflite';
+  static const String labelsPath = 'assets/models/labels.txt';
   
   Interpreter? _interpreter;
   List<String>? _labels;
   bool _isInitialized = false;
 
   // Model input/output configuration
-  static const int inputSize = 224; // Adjust based on your model's input size
+  static const int inputSize = 224; // Custom CNN input size
   static const int numChannels = 3;
-  static const int numClasses = 6; // 6 disease classes: Bract Mosaic Virus, Cordana, Healthy, Panama, Pestalotiopsis, Sigatoka
+  static const int numClasses = 6; // 6 disease classes: Black Sigatoka, Bract Mosaic Virus, Cordana, Healthy Leaf, Panama, Pestalotiopsis
 
   /// Initialize the TFLite model
   Future<void> initialize() async {
