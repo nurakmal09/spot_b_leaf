@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class PlantSelectionDialog extends StatefulWidget {
   const PlantSelectionDialog({super.key});
@@ -18,8 +19,12 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
   bool _showQRScanner = false;
   
   List<String> _fields = [];
+  List<String> _filteredFields = [];
   List<Map<String, dynamic>> _plants = [];
+  List<Map<String, dynamic>> _filteredPlants = [];
   
+  final TextEditingController _fieldSearchController = TextEditingController();
+  final TextEditingController _plantSearchController = TextEditingController();
   final GlobalKey qrKey = GlobalKey(debugLabel: 'PlantQR');
   QRViewController? _qrController;
 
@@ -32,7 +37,39 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
   @override
   void dispose() {
     _qrController?.dispose();
+    _fieldSearchController.dispose();
+    _plantSearchController.dispose();
     super.dispose();
+  }
+
+  void _filterFields(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredFields = List.from(_fields);
+      } else {
+        _filteredFields = _fields
+            .where((field) => field.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  void _filterPlants(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredPlants = List.from(_plants);
+      } else {
+        _filteredPlants = _plants.where((plant) {
+          final plantId = (plant['plant_id'] as String).toLowerCase();
+          final section = plant['section'].toString();
+          final row = plant['row'].toString();
+          final searchQuery = query.toLowerCase();
+          return plantId.contains(searchQuery) ||
+              section.contains(searchQuery) ||
+              row.contains(searchQuery);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _loadFields() async {
@@ -41,8 +78,19 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
     });
 
     try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        debugPrint('No user logged in');
+        setState(() {
+          _isLoadingFields = false;
+        });
+        return;
+      }
+
       final snapshot = await FirebaseFirestore.instance
           .collection('field')
+          .where('userId', isEqualTo: user.uid)
           .get();
 
       debugPrint('Total fields in database: ${snapshot.docs.length}');
@@ -58,6 +106,7 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
 
       setState(() {
         _fields = fields.cast<String>();
+        _filteredFields = List.from(_fields);
         _isLoadingFields = false;
       });
     } catch (e) {
@@ -88,8 +137,19 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
     try {
       debugPrint('Loading plants for field: $field');
       
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        debugPrint('No user logged in');
+        setState(() {
+          _isLoadingPlants = false;
+        });
+        return;
+      }
+      
       final snapshot = await FirebaseFirestore.instance
           .collection('plant')
+          .where('userId', isEqualTo: user.uid)
           .where('field_name', isEqualTo: field)
           .get();
 
@@ -125,6 +185,8 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
       if (mounted) {
         setState(() {
           _plants = plants;
+          _filteredPlants = List.from(_plants);
+          _plantSearchController.clear();
           _isLoadingPlants = false;
         });
         debugPrint('UI updated successfully');
@@ -163,8 +225,24 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
     try {
       debugPrint('Searching for plant with QR code: $qrCode');
       
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        debugPrint('No user logged in');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please sign in to scan plants'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
       final snapshot = await FirebaseFirestore.instance
           .collection('plant')
+          .where('userId', isEqualTo: user.uid)
           .where('qr_code_id', isEqualTo: qrCode)
           .limit(1)
           .get();
@@ -386,18 +464,74 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
             
             const SizedBox(height: 20),
             
-            // Manual Selection
-            Text(
-              'Select Manually',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
+            // Manual Selection Header
+            Row(
+              children: [
+                Text(
+                  'Select Manually',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const Spacer(),
+                if (_fields.isNotEmpty)
+                  Text(
+                    '${_filteredFields.length}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
-            // Field Dropdown
+            // Field Search Box
+            if (_fields.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: TextField(
+                  controller: _fieldSearchController,
+                  onChanged: _filterFields,
+                  decoration: InputDecoration(
+                    hintText: 'Search fields...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    suffixIcon: _fieldSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 20),
+                            onPressed: () {
+                              _fieldSearchController.clear();
+                              _filterFields('');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.green[600]!, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+            
+            // Field Selection List
             _isLoadingFields
                 ? const Center(child: CircularProgressIndicator())
                 : _fields.isEmpty
@@ -414,47 +548,208 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'No fields found in database. Please add plants first.',
+                                'No fields found. Please add fields first.',
                                 style: TextStyle(color: Colors.orange[900]),
                               ),
                             ),
                           ],
                         ),
                       )
-                    : DropdownButtonFormField<String>(
-                        value: _selectedField,
-                        decoration: InputDecoration(
-                          labelText: 'Select Field',
-                          prefixIcon: const Icon(Icons.landscape),
-                          border: OutlineInputBorder(
+                    : _filteredFields.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
                           ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
+                          child: Row(
+                            children: [
+                              Icon(Icons.search_off, color: Colors.grey[600]),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'No fields match your search.',
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
                         ),
-                        items: _fields.map((field) {
-                          return DropdownMenuItem(
-                            value: field,
-                            child: Text(field),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedField = value;
-                            _selectedPlant = null;
-                          });
-                          if (value != null) {
-                            _loadPlantsInField(value);
-                          }
-                        },
+                        child: Column(
+                          children: [
+                            // Fields label
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Fields',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[600],
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Field items
+                            ..._filteredFields.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final field = entry.value;
+                              final isSelected = _selectedField == field;
+                              final isLast = index == _filteredFields.length - 1;
+                              
+                              return Column(
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedField = field;
+                                        _selectedPlant = null;
+                                      });
+                                      _loadPlantsInField(field);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.green[50] : Colors.transparent,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green[100],
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              Icons.landscape,
+                                              size: 20,
+                                              color: Colors.green[700],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              field,
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                                color: isSelected ? Colors.green[700] : Colors.grey[800],
+                                              ),
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green[600],
+                                              size: 20,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (!isLast)
+                                    Divider(
+                                      height: 1,
+                                      indent: 56,
+                                      color: Colors.grey[200],
+                                    ),
+                                ],
+                              );
+                            }).toList(),
+                          ],
+                        ),
                       ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             
-            // Plant Dropdown
+            // Plant Selection List
             if (_selectedField != null) ...[
+              Row(
+                children: [
+                  Text(
+                    'Plants in $_selectedField',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_plants.isNotEmpty)
+                    Text(
+                      '${_filteredPlants.length}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // Plant Search Box
+              if (_plants.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: _plantSearchController,
+                    onChanged: _filterPlants,
+                    decoration: InputDecoration(
+                      hintText: 'Search plants...',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                      suffixIcon: _plantSearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _plantSearchController.clear();
+                                _filterPlants('');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.green[600]!, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
               _isLoadingPlants
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
                   : _plants.isEmpty
                       ? Container(
                           padding: const EdgeInsets.all(16),
@@ -469,54 +764,145 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'No plants found in field "$_selectedField".',
+                                  'No plants found in "$_selectedField".',
                                   style: TextStyle(color: Colors.orange[900]),
                                 ),
                               ),
                             ],
                           ),
                         )
-                      : DropdownButtonFormField<String>(
-                      value: _selectedPlant,
-                      decoration: InputDecoration(
-                        labelText: 'Select Plant',
-                        prefixIcon: const Icon(Icons.eco),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                      items: _plants.map((plant) {
-                        return DropdownMenuItem<String>(
-                          value: plant['id'] as String,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.circle,
-                                size: 12,
-                                color: _getStatusColor(plant['status']),
+                      : _filteredPlants.isEmpty
+                          ? Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
                               ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  '${plant['plant_id']} (Section ${plant['section']}, Row ${plant['row']})',
-                                  overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.search_off, color: Colors.grey[600]),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'No plants match your search.',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              // Plants label
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      'Available Plants',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey[600],
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              // Plant items
+                              ..._filteredPlants.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final plant = entry.value;
+                                final plantId = plant['id'] as String;
+                                final isSelected = _selectedPlant == plantId;
+                                final isLast = index == _filteredPlants.length - 1;
+                                final statusColor = _getStatusColor(plant['status']);
+                                
+                                return Column(
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedPlant = plantId;
+                                          _selectedPlantData = plant['data'];
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? Colors.green[50] : Colors.transparent,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Icon(
+                                                Icons.eco,
+                                                size: 20,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    plant['plant_id'] as String,
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                                      color: isSelected ? Colors.green[700] : Colors.grey[800],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'Section ${plant['section']}, Row ${plant['row']}',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if (isSelected)
+                                              Icon(
+                                                Icons.check_circle,
+                                                color: Colors.green[600],
+                                                size: 20,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    if (!isLast)
+                                      Divider(
+                                        height: 1,
+                                        indent: 56,
+                                        color: Colors.grey[200],
+                                      ),
+                                  ],
+                                );
+                              }).toList(),
                             ],
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedPlant = value;
-                          _selectedPlantData = _plants
-                              .firstWhere((p) => p['id'] == value)['data'];
-                        });
-                      },
-                    ),
+                        ),
               
               const SizedBox(height: 20),
               

@@ -423,7 +423,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                             Text(
                               isDiseaseMode
                                   ? (_selectedPlantId != null 
-                                      ? 'Plant: ${_selectedPlantData?['plant_id'] ?? 'Selected'}'
+                                      ? '${_selectedPlantData?['field_name'] ?? 'Field'} - ${_selectedPlantData?['plant_id'] ?? 'Plant'}'
                                       : 'Select plant first')
                                   : 'Align QR code within frame',
                               style: const TextStyle(
@@ -495,7 +495,11 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                         _selectedPlantId != null ? Icons.change_circle : Icons.eco,
                         size: 18,
                       ),
-                      label: Text(_selectedPlantId != null ? 'Change Plant' : 'Select Plant'),
+                      label: Text(
+                        _selectedPlantId != null 
+                            ? '${_selectedPlantData?['field_name'] ?? 'Field'} - ${_selectedPlantData?['plant_id'] ?? 'Plant'}'
+                            : 'Select Plant'
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.withValues(alpha: 0.9),
                         foregroundColor: Colors.white,
