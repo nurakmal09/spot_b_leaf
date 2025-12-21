@@ -83,6 +83,63 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     }
   }
 
+  List<String> _getTreatmentRecommendations(String? diseaseType) {
+    if (diseaseType == null || diseaseType.toLowerCase().contains('healthy')) {
+      return [
+        'Continue regular monitoring and maintenance',
+        'Maintain proper watering schedule',
+        'Ensure good air circulation around plants',
+      ];
+    }
+
+    final disease = diseaseType.toLowerCase();
+
+    if (disease.contains('black sigatoka')) {
+      return [
+        'Remove and destroy infected leaves immediately',
+        'Apply fungicide (propiconazole or azoxystrobin)',
+        'Improve drainage and reduce leaf wetness',
+        'Space plants adequately for air circulation',
+      ];
+    } else if (disease.contains('panama')) {
+      return [
+        'Remove infected plant immediately to prevent spread',
+        'Disinfect tools and equipment after use',
+        'Avoid planting susceptible varieties in infected soil',
+        'Consider soil fumigation for severe cases',
+        'Plant disease-resistant varieties',
+      ];
+    } else if (disease.contains('bract mosaic virus') || disease.contains('mosaic')) {
+      return [
+        'Remove and destroy infected plants',
+        'Control aphid vectors with appropriate insecticides',
+        'Use virus-free planting material',
+        'Remove wild banana plants nearby',
+      ];
+    } else if (disease.contains('cordana')) {
+      return [
+        'Improve field drainage to reduce moisture',
+        'Remove severely infected leaves',
+        'Apply copper-based fungicide',
+        'Avoid overhead irrigation',
+      ];
+    } else if (disease.contains('pestalotiopsis')) {
+      return [
+        'Remove infected plant parts',
+        'Apply appropriate fungicide treatment',
+        'Improve plant nutrition and vigor',
+        'Reduce plant stress factors',
+      ];
+    } else {
+      return [
+        'Monitor plant closely for symptom progression',
+        'Consult with agricultural extension officer',
+        'Apply general fungicide as preventive measure',
+        'Maintain good field sanitation',
+      ];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
@@ -194,6 +251,74 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                     _buildInfoRow('Day Planted', dayPlanted),
                     const SizedBox(height: 24),
 
+                    // Disease Information (if detected)
+                    if (widget.plantData['lastDiseaseType'] != null) ..[
+                      _buildSectionTitle(Icons.local_hospital, 'Disease Information'),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: statusColor, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    widget.plantData['lastDiseaseType'] as String,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (widget.plantData['lastDiseaseConfidence'] != null) ..[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Confidence: ',
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${((widget.plantData['lastDiseaseConfidence'] as double) * 100).toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[800],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (widget.plantData['lastDiseaseCheck'] != null) ..[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Last checked: ${_formatDayPlanted(widget.plantData['lastDiseaseCheck'])}',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
                     // Plant QR Code Section
                     _buildSectionTitle(Icons.qr_code, 'Plant QR Code'),
                     const SizedBox(height: 12),
@@ -277,23 +402,35 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Recommendations
-                    _buildSectionTitle(Icons.lightbulb_outline, 'Recommendations'),
+                    // Treatment Recommendations
+                    _buildSectionTitle(
+                      Icons.medical_services,
+                      widget.plantData['lastDiseaseType'] != null ? 'Treatment Plan' : 'Recommendations',
+                    ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: widget.plantData['lastDiseaseType'] != null
+                            ? Colors.orange[50]
+                            : Colors.blue[50],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildRecommendationItem('Increase monitoring frequency to twice weekly'),
-                          const SizedBox(height: 8),
-                          _buildRecommendationItem('Apply preventive fungicide treatment before rainy season'),
-                          const SizedBox(height: 8),
-                          _buildRecommendationItem('Ensure proper drainage around plant base'),
+                          ..._getTreatmentRecommendations(
+                            widget.plantData['lastDiseaseType'] as String?,
+                          ).asMap().entries.map((entry) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: entry.key < _getTreatmentRecommendations(
+                                  widget.plantData['lastDiseaseType'] as String?,
+                                ).length - 1 ? 8 : 0,
+                              ),
+                              child: _buildRecommendationItem(entry.value),
+                            );
+                          }),
                         ],
                       ),
                     ),

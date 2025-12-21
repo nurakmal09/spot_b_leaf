@@ -8,6 +8,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/plant_details_dialog.dart';
 import '../widgets/plant_selection_dialog.dart';
 import '../services/disease_detection_service.dart';
+import '../services/firebase_storage_service.dart';
 import 'settings_page.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -40,8 +41,12 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   
   // Disease detection
   final DiseaseDetectionService _diseaseDetectionService = DiseaseDetectionService();
+  final FirebaseStorageService _storageService = FirebaseStorageService();
   DiseaseDetectionResult? _diseaseResult;
   bool _isDetecting = false;
+  String? _uploadedImageUrl;
+  String? _capturedImagePath;
+  bool _isSaving = false;
   
   // Selected plant for disease detection
   String? _selectedPlantId;
@@ -241,6 +246,7 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
         
         setState(() {
           _diseaseResult = result;
+          _capturedImagePath = image.path;
           showResult = true;
           isScanning = false;
           _isDetecting = false;
@@ -291,12 +297,56 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
             final result = await _diseaseDetectionService.detectDisease(image.path);
             debugPrint('Detection result: $result');
             
+            // Upload image to Firebase Storage and save detection
+            String? imageUrl;
+            String? detectionId;
+            try {
+              final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
+                imagePath: image.path,
+                plantId: _selectedPlantId!,
+                diseaseType: result.diseaseName,
+                confidence: result.confidence,
+                additionalData: {
+                  'severity': result.severity,
+                  'allPredictions': result.probabilities,
+                },
+              );
+              imageUrl = uploadResult['imageUrl'];
+              detectionId = uploadResult['detectionId'];
+              debugPrint('Image uploaded to Firebase: $imageUrl');
+              debugPrint('Detection saved with ID: $detectionId');
+            } catch (uploadError) {
+              debugPrint('Error uploading to Firebase: $uploadError');
+              // Continue showing result even if upload fails
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Warning: Image upload failed - ${uploadError.toString()}'),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            }
+            
             setState(() {
               _diseaseResult = result;
+              _uploadedImageUrl = imageUrl;
               showResult = true;
               isScanning = false;
               _isDetecting = false;
             });
+            
+            // Show success message if upload succeeded
+            if (mounted && imageUrl != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('\u2713 Image saved to Firebase successfully'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
           } catch (e) {
             debugPrint('Error detecting disease: $e');
             setState(() {
@@ -384,12 +434,108 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
       _isLoadingPlantData = false;
       _diseaseResult = null;
       _isDetecting = false;
+      _uploadedImageUrl = null;
+      _capturedImagePath = null;
+      _isSaving = false;
       
       // Resume camera/scanner
       if (!isDiseaseMode && _qrController != null) {
         _qrController!.resumeCamera();
       }
     });
+  }
+
+  Future<void> _saveToFirebase() async {
+    if (_capturedImagePath == null || _diseaseResult == null || _selectedPlantId == null) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
+        imagePath: _capturedImagePath!,
+        plantId: _selectedPlantId!,
+        diseaseType: _diseaseResult!.diseaseName,
+        confidence: _diseaseResult!.confidence,
+        additionalData: {
+          'severity': _diseaseResult!.severity,
+          'allPredictions': _diseaseResult!.probabilities,
+        },
+      );
+      
+      final imageUrl = uploadResult['imageUrl'];
+      final detectionId = uploadResult['detectionId'];
+      debugPrint('Image uploaded to Firebase: $imageUrl');
+      debugPrint('Detection saved with ID: $detectionId');
+
+      setState(() {
+        _uploadedImageUrl = imageUrl;
+        _isSaving = false;
+      });
+
+      if (mounted) {
+        // Show success popup dialog
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Image saved to Firebase successfully!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        
+        // Auto close popup and reset after 3.5 seconds
+        await Future.delayed(const Duration(milliseconds: 3500));
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          await Future.delayed(const Duration(milliseconds: 500));
+          _resetScanner();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading to Firebase: $e');
+      setState(() {
+        _isSaving = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -1203,25 +1349,31 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Navigate to treatment page
-                    Navigator.pushNamed(context, '/treatment');
-                  },
+                  onPressed: _uploadedImageUrl != null || _isSaving ? null : _saveToFirebase,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: severityColor,
+                    backgroundColor: _uploadedImageUrl != null ? Colors.grey : severityColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Treatment',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          _uploadedImageUrl != null ? 'Saved' : 'Save',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ],
