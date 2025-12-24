@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class PlantSelectionDialog extends StatefulWidget {
@@ -16,7 +15,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
   Map<String, dynamic>? _selectedPlantData;
   bool _isLoadingFields = false;
   bool _isLoadingPlants = false;
-  bool _showQRScanner = false;
   
   List<String> _fields = [];
   List<String> _filteredFields = [];
@@ -25,8 +23,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
   
   final TextEditingController _fieldSearchController = TextEditingController();
   final TextEditingController _plantSearchController = TextEditingController();
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'PlantQR');
-  QRViewController? _qrController;
 
   @override
   void initState() {
@@ -36,7 +32,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
 
   @override
   void dispose() {
-    _qrController?.dispose();
     _fieldSearchController.dispose();
     _plantSearchController.dispose();
     super.dispose();
@@ -175,9 +170,18 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
       }).toList();
 
       plants.sort((a, b) {
-        final aId = a['plant_id'] as String;
-        final bId = b['plant_id'] as String;
-        return aId.compareTo(bId);
+        // Sort by section first, then by row
+        final aSection = int.tryParse(a['section'].toString()) ?? 0;
+        final bSection = int.tryParse(b['section'].toString()) ?? 0;
+        
+        if (aSection != bSection) {
+          return aSection.compareTo(bSection);
+        }
+        
+        // If sections are equal, sort by row
+        final aRow = int.tryParse(a['row'].toString()) ?? 0;
+        final bRow = int.tryParse(b['row'].toString()) ?? 0;
+        return aRow.compareTo(bRow);
       });
 
       debugPrint('Successfully processed ${plants.length} plants, updating UI...');
@@ -207,88 +211,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
             duration: const Duration(seconds: 5),
           ),
         );
-      }
-    }
-  }
-
-  void _onQRViewCreated(QRViewController controller) {
-    _qrController = controller;
-    controller.scannedDataStream.listen((scanData) async {
-      if (scanData.code != null) {
-        controller.pauseCamera();
-        await _loadPlantByQRCode(scanData.code!);
-      }
-    });
-  }
-
-  Future<void> _loadPlantByQRCode(String qrCode) async {
-    try {
-      debugPrint('Searching for plant with QR code: $qrCode');
-      
-      // Get current user
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        debugPrint('No user logged in');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please sign in to scan plants'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      
-      final snapshot = await FirebaseFirestore.instance
-          .collection('plant')
-          .where('userId', isEqualTo: user.uid)
-          .where('qr_code_id', isEqualTo: qrCode)
-          .limit(1)
-          .get();
-
-      debugPrint('QR code search results: ${snapshot.docs.length} plant(s) found');
-
-      if (snapshot.docs.isNotEmpty) {
-        final doc = snapshot.docs.first;
-        final data = doc.data();
-        
-        debugPrint('Plant found: ${data['plant_id']} in field ${data['field']}');
-        
-        setState(() {
-          _selectedPlantData = data;
-          _selectedPlant = doc.id;
-          _showQRScanner = false;
-        });
-
-        // Return the selected plant
-        if (mounted) {
-          Navigator.pop(context, {
-            'plantId': doc.id,
-            'plantData': data,
-          });
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Plant not found. Please try again.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          _qrController?.resumeCamera();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading plant by QR: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        _qrController?.resumeCamera();
       }
     }
   }
@@ -340,79 +262,43 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
             ),
 
             // Content
-            Flexible(
-              child: _showQRScanner ? _buildQRScanner() : _buildManualSelection(),
+            Expanded(
+              child: _buildManualSelection(),
+            ),
+
+            // Fixed Confirm Button at bottom
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: ElevatedButton(
+                onPressed: _selectedPlant != null
+                    ? () {
+                        Navigator.pop(context, {
+                          'plantId': _selectedPlant,
+                          'plantData': _selectedPlantData,
+                        });
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  disabledBackgroundColor: Colors.grey[300],
+                ),
+                child: const Text(
+                  'Confirm Selection',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildQRScanner() {
-    return Column(
-      children: [
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.green[300]!, width: 3),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: Colors.green,
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: 250,
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Column(
-            children: [
-              const Text(
-                'Scan Plant QR Code',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Position the QR code within the frame',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showQRScanner = false;
-                  });
-                  _qrController?.dispose();
-                },
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back to Manual Selection'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey[600],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -423,72 +309,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // QR Scan Option
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _showQRScanner = true;
-                });
-              },
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan Plant QR Code'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Divider
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey[400])),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'OR',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(child: Divider(color: Colors.grey[400])),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Manual Selection Header
-            Row(
-              children: [
-                Text(
-                  'Select Manually',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                const Spacer(),
-                if (_fields.isNotEmpty)
-                  Text(
-                    '${_filteredFields.length}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
             // Field Search Box
             if (_fields.isNotEmpty)
               Container(
@@ -824,7 +644,13 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
                                 final plantId = plant['id'] as String;
                                 final isSelected = _selectedPlant == plantId;
                                 final isLast = index == _filteredPlants.length - 1;
-                                final statusColor = _getStatusColor(plant['status']);
+                                // Get status from status list (matching my_garden_page logic)
+                                final statusList = plant['data']['status'] as List<dynamic>?;
+                                String statusStr = 'healthy';
+                                if (statusList != null && statusList.isNotEmpty) {
+                                  statusStr = statusList[0].toString().toLowerCase();
+                                }
+                                final statusColor = _getStatusColor(statusStr);
                                 
                                 return Column(
                                   children: [
@@ -903,36 +729,6 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
                             ],
                           ),
                         ),
-              
-              const SizedBox(height: 20),
-              
-              // Confirm Button
-              ElevatedButton(
-                onPressed: _selectedPlant != null
-                    ? () {
-                        Navigator.pop(context, {
-                          'plantId': _selectedPlant,
-                          'plantData': _selectedPlantData,
-                        });
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  disabledBackgroundColor: Colors.grey[300],
-                ),
-                child: const Text(
-                  'Confirm Selection',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             ],
           ],
         ),
@@ -943,11 +739,11 @@ class _PlantSelectionDialogState extends State<PlantSelectionDialog> {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'healthy':
-        return Colors.green;
-      case 'sick':
-        return Colors.red;
-      case 'monitoring':
-        return Colors.orange;
+        return const Color.fromARGB(255, 17, 95, 17);
+      case 'diseased':
+        return const Color.fromARGB(255, 200, 50, 50);
+      case 'warning':
+        return const Color.fromARGB(255, 230, 140, 0);
       default:
         return Colors.grey;
     }
