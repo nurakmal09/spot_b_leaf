@@ -291,17 +291,32 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                   const SizedBox(height: 12),
                   ...widget.activities.map((activity) {
                     final activityData = activity as Map<String, dynamic>;
+                    final status = activityData['status'] ?? 'No Record';
+                    Color statusColor = Colors.grey;
+                    
+                    // Determine status color
+                    if (status == 'Healthy') {
+                      statusColor = Colors.green;
+                    } else if (status == 'Disease') {
+                      statusColor = Colors.red;
+                    } else if (status == 'Monitoring') {
+                      statusColor = Colors.orange;
+                    } else if (status == 'Note') {
+                      statusColor = Colors.blue;
+                    }
+                    
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.grey[200]!),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
+                            color: Colors.grey.withValues(alpha: 0.08),
+                            blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -309,21 +324,41 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            activityData['date'] ?? '',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                              color: Colors.green[700],
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                activityData['date'] ?? '',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           Text(
                             activityData['description'] ?? '',
                             style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 14,
-                              height: 1.4,
+                              fontSize: 15,
+                              color: Colors.grey[800],
+                              height: 1.5,
                             ),
                           ),
                         ],

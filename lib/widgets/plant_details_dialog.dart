@@ -23,6 +23,7 @@ class PlantDetailsDialog extends StatefulWidget {
 
 class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
   late TextEditingController _notesController;
+  late TextEditingController _todayNotesController;
 
   @override
   void initState() {
@@ -30,12 +31,25 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     _notesController = TextEditingController(
       text: widget.plantData['notes'] as String? ?? '',
     );
+    
+    // Load today's notes
+    final todayNotesData = widget.plantData['dailyNotes'] as Map<String, dynamic>?;
+    final todayKey = _getTodayKey();
+    _todayNotesController = TextEditingController(
+      text: todayNotesData?[todayKey] as String? ?? '',
+    );
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _todayNotesController.dispose();
     super.dispose();
+  }
+
+  String _getTodayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   String _getStatusText() {
@@ -80,6 +94,30 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       return '$day/$month/$year at $hour:$minute';
     } catch (e) {
       return 'Not specified';
+    }
+  }
+
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return 'Just now';
+    
+    try {
+      final date = timestamp.toDate();
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inMinutes < 1) {
+        return 'Just now';
+      } else if (difference.inHours < 1) {
+        return '${difference.inMinutes} min ago';
+      } else if (difference.inDays < 1) {
+        return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+      } else {
+        final hour = date.hour.toString().padLeft(2, '0');
+        final minute = date.minute.toString().padLeft(2, '0');
+        return 'Today at $hour:$minute';
+      }
+    } catch (e) {
+      return 'Recently';
     }
   }
 
@@ -282,6 +320,66 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                       _buildDiseaseInfoSection(),
                       const SizedBox(height: 24),
                     ],
+
+                    // Today's Notes (Editable)
+                    _buildSectionTitle(Icons.today, 'Today\'s Notes'),
+                    const SizedBox(height: 8),
+                    Text(
+                      _getTodayKey(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _todayNotesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Add notes for today...',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: Colors.blue[50],
+                      ),
+                      onChanged: (value) {
+                        final todayKey = _getTodayKey();
+                        final currentDailyNotes = widget.plantData['dailyNotes'] as Map<String, dynamic>? ?? {};
+                        currentDailyNotes[todayKey] = value;
+                        
+                        // Save to Firestore
+                        FirebaseFirestore.instance
+                            .collection('plant')
+                            .doc(widget.documentId)
+                            .update({'dailyNotes': currentDailyNotes});
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Saved automatically',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
                     // Recommendations (only for healthy plants)
                     if (status == 'Healthy') ...[

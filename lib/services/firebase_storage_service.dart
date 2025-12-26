@@ -107,13 +107,24 @@ class FirebaseStorageService {
       }
 
       // Update the plant document with latest disease detection and health status
-      await _firestore.collection('plant').doc(plantId).update({
+      final plantUpdateData = {
         'lastDiseaseCheck': FieldValue.serverTimestamp(),
         'lastDiseaseType': diseaseType,
         'lastDiseaseConfidence': confidence,
         'lastDiseaseImageUrl': imageUrl,
         'status': [healthStatus], // Update health status for field map icon
-      });
+      };
+      
+      // Add daily notes to plant update if provided in additionalData
+      if (additionalData != null) {
+        additionalData.forEach((key, value) {
+          if (key.startsWith('dailyNotes.')) {
+            plantUpdateData[key] = value;
+          }
+        });
+      }
+      
+      await _firestore.collection('plant').doc(plantId).update(plantUpdateData);
 
       print('Disease detection saved with ID: ${docRef.id}');
       print('Plant health status updated to: $healthStatus');

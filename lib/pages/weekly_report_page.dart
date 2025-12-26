@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../auth.dart';
 
-class WeeklyReportPage extends StatelessWidget {
+class WeeklyReportPage extends StatefulWidget {
   final Map<String, dynamic> plantData;
   final String documentId;
 
@@ -11,6 +11,179 @@ class WeeklyReportPage extends StatelessWidget {
     required this.plantData,
     required this.documentId,
   });
+
+  @override
+  State<WeeklyReportPage> createState() => _WeeklyReportPageState();
+}
+
+class _WeeklyReportPageState extends State<WeeklyReportPage> {
+  List<Map<String, dynamic>> _weeklyActivities = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeeklyActivities();
+  }
+
+  Future<void> _loadWeeklyActivities() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final now = DateTime.now();
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      
+      // Reload fresh plant data from Firestore to get latest dailyNotes
+      final plantDoc = await FirebaseFirestore.instance
+          .collection('plant')
+          .doc(widget.documentId)
+          .get();
+      
+      final plantData = plantDoc.data() ?? {};
+      
+      // Get ALL disease detections for this plant (avoid index requirement)
+      final detections = await FirebaseFirestore.instance
+          .collection('disease_detections')
+          .where('plantId', isEqualTo: widget.documentId)
+          .get();
+      
+      debugPrint('=== WEEKLY REPORT DEBUG ===');
+      debugPrint('Plant document ID: ${widget.documentId}');
+      debugPrint('Start of week: $startOfWeek');
+      debugPrint('Found ${detections.docs.length} total disease detections');
+      
+      // Filter detections to only this week
+      final weekDetections = detections.docs.where((doc) {
+        final detectedAt = (doc.data()['detectedAt'] as Timestamp?)?.toDate();
+        if (detectedAt == null) return false;
+        return detectedAt.isAfter(startOfWeek.subtract(const Duration(days: 1)));
+      }).toList();
+      
+      debugPrint('Found ${weekDetections.length} detections for this week');
+      
+      // Log each detection
+      for (var doc in weekDetections) {
+        final data = doc.data();
+        final detectedAt = (data['detectedAt'] as Timestamp?)?.toDate();
+        debugPrint('  - Detection: ${data['diseaseType']} at $detectedAt');
+      }
+      
+      // Get daily notes from fresh plant data
+      final dailyNotes = plantData['dailyNotes'] as Map<String, dynamic>? ?? {};
+      debugPrint('Daily notes: $dailyNotes');
+      
+      // Create activities for each day of the week
+      final activities = <Map<String, dynamic>>[];
+      final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      
+      for (int i = 0; i < 7; i++) {
+        final date = startOfWeek.add(Duration(days: i));
+        final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        final dayName = daysOfWeek[date.weekday - 1];
+        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final dateLabel = '$dayName, ${monthNames[date.month - 1]} ${date.day}';
+        
+        debugPrint('Processing day: $dateLabel (key: $dateKey)');
+        
+        // Find disease detection for this day
+        final dayDetections = weekDetections.where((doc) {
+          final detectedAt = (doc.data()['detectedAt'] as Timestamp?)?.toDate();
+          if (detectedAt == null) return false;
+          return detectedAt.year == date.year &&
+                 detectedAt.month == date.month &&
+                 detectedAt.day == date.day;
+        }).toList();
+        
+        debugPrint('  Detections found: ${dayDetections.length}');
+        
+        // Get notes for this day
+        final notes = dailyNotes[dateKey] as String?;
+        debugPrint('  Notes: $notes');
+        
+        // Always add an entry for this day
+        final detection = dayDetections.isNotEmpty ? dayDetections.first.data() : null;
+        final diseaseType = detection?['diseaseType'] as String?;
+        final severity = detection?['severity'] as String?;
+        
+        String status = 'No Record';
+        Color statusColor = Colors.grey;
+        String description = 'No record on this day';
+        
+        if (diseaseType != null) {
+          // Add disease scan info with current condition
+          if (diseaseType.toLowerCase().contains('healthy')) {
+            status = 'Healthy';
+            statusColor = Colors.green;
+            description = 'Disease Scan: Plant is healthy.';
+          } else if (severity == 'High Risk') {
+            status = 'Disease';
+            statusColor = Colors.red;
+            description = 'Disease Scan: $diseaseType detected (High Risk). Immediate attention required.';
+          } else if (severity == 'Medium Risk' || severity == 'Low Risk') {
+            status = 'Monitoring';
+            statusColor = Colors.orange;
+            description = 'Disease Scan: $diseaseType detected ($severity). Monitor closely.';
+          } else {
+            status = 'Disease';
+            statusColor = Colors.red;
+            description = 'Disease Scan: $diseaseType detected.';
+          }
+        }
+        
+        // Add notes if available - shown prominently
+        if (notes != null && notes.isNotEmpty) {
+          if (diseaseType != null) {
+            description += '\n\nToday\'s Notes: $notes';
+          } else {
+            description = 'Today\'s Notes: $notes';
+            status = 'Note';
+            statusColor = Colors.blue;
+          }
+        }
+        
+        activities.add({
+          'date': dateLabel,
+          'description': description,
+          'status': status,
+          'color': statusColor,
+        });
+      }
+      
+      setState(() {
+        _weeklyActivities = activities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading weekly activities: $e');
+      
+      // Even on error, show the 7 days with "No record"
+      final now = DateTime.now();
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      final fallbackActivities = <Map<String, dynamic>>[];
+      for (int i = 0; i < 7; i++) {
+        final date = startOfWeek.add(Duration(days: i));
+        final dayName = daysOfWeek[date.weekday - 1];
+        final dateLabel = '$dayName, ${monthNames[date.month - 1]} ${date.day}';
+        
+        fallbackActivities.add({
+          'date': dateLabel,
+          'description': 'No record on this day',
+          'status': 'No Record',
+          'color': Colors.grey,
+        });
+      }
+      
+      setState(() {
+        _weeklyActivities = fallbackActivities;
+        _isLoading = false;
+      });
+    }
+  }
 
   String _getWeekRange() {
     final now = DateTime.now();
@@ -71,42 +244,43 @@ class WeeklyReportPage extends StatelessWidget {
     }
 
     try {
-      final plantId = plantData['plant_id'] as String? ?? 'Unknown';
-      final section = plantData['section']?.toString() ?? 'N/A';
-      final row = plantData['row']?.toString() ?? 'N/A';
-      final fieldName = plantData['field_name'] as String? ?? 'Unknown Field';
+      final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
+      final section = widget.plantData['section']?.toString() ?? 'N/A';
+      final row = widget.plantData['row']?.toString() ?? 'N/A';
+      final fieldName = widget.plantData['field_name'] as String? ?? 'Unknown Field';
 
       // Get the user's notes from plant data
-      final plantNotes = plantData['notes'] as String? ?? '';
+      final plantNotes = widget.plantData['notes'] as String? ?? '';
+      
+      // Calculate healthy and disease days from activities
+      int healthyDays = 0;
+      int diseaseDays = 0;
+      
+      for (var activity in _weeklyActivities) {
+        final status = activity['status'] as String;
+        if (status == 'Healthy') {
+          healthyDays++;
+        } else if (status == 'Disease' || status == 'Monitoring') {
+          diseaseDays++;
+        }
+      }
 
       // Create report data
       final reportData = {
         'userId': user.uid,
         'plantId': plantId,
-        'documentId': documentId,
+        'documentId': widget.documentId,
         'fieldName': fieldName,
         'section': section,
         'row': row,
         'weekRange': _getWeekRange(),
-        'healthyDays': 5,
-        'diseaseDays': 2,
-        'activities': [
-          {
-            'date': 'Monday, Dec 15',
-            'description': 'Routine inspection completed. No issues detected.',
-            'status': 'Healthy',
-          },
-          {
-            'date': 'Wednesday, Dec 17',
-            'description': 'Black Sigatoka detected. Fungicide treatment applied immediately.',
-            'status': 'Disease',
-          },
-          {
-            'date': 'Friday, Dec 19',
-            'description': 'Follow-up scan. Disease progression slowed. Continue treatment.',
-            'status': 'Monitoring',
-          },
-        ],
+        'healthyDays': healthyDays,
+        'diseaseDays': diseaseDays,
+        'activities': _weeklyActivities.map((activity) => {
+          'date': activity['date'],
+          'description': activity['description'],
+          'status': activity['status'],
+        }).toList(),
         'recommendations': [
           'Continue fungicide treatment for 3 more days',
           'Monitor daily for disease progression',
@@ -212,10 +386,10 @@ class WeeklyReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plantId = plantData['plant_id'] as String? ?? 'Unknown';
-    final section = plantData['section']?.toString() ?? 'N/A';
-    final row = plantData['row']?.toString() ?? 'N/A';
-    final fieldName = plantData['field_name'] as String? ?? 'Unknown Field';
+    final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
+    final section = widget.plantData['section']?.toString() ?? 'N/A';
+    final row = widget.plantData['row']?.toString() ?? 'N/A';
+    final fieldName = widget.plantData['field_name'] as String? ?? 'Unknown Field';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -468,26 +642,27 @@ class WeeklyReportPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildActivityItem(
-                      'Monday, Dec 15',
-                      'Routine inspection completed. No issues detected.',
-                      'Healthy',
-                      Colors.green,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActivityItem(
-                      'Wednesday, Dec 17',
-                      'Black Sigatoka detected. Fungicide treatment applied immediately.',
-                      'Disease',
-                      Colors.red,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActivityItem(
-                      'Friday, Dec 19',
-                      'Follow-up scan. Disease progression slowed. Continue treatment.',
-                      'Monitoring',
-                      Colors.orange,
-                    ),
+                    if (_isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else
+                      ..._weeklyActivities.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final activity = entry.value;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: index < _weeklyActivities.length - 1 ? 12 : 0),
+                          child: _buildActivityItem(
+                            activity['date'] as String,
+                            activity['description'] as String,
+                            activity['status'] as String,
+                            activity['color'] as Color,
+                          ),
+                        );
+                      }).toList(),
                     const SizedBox(height: 24),
 
                     // Recommendations
@@ -575,11 +750,19 @@ class WeeklyReportPage extends StatelessWidget {
 
   Widget _buildActivityItem(String date, String description, String status, Color statusColor) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,35 +773,35 @@ class WeeklyReportPage extends StatelessWidget {
               Text(
                 date,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.green[700],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: statusColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   status,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: statusColor,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             description,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 15,
               color: Colors.grey[800],
-              height: 1.4,
+              height: 1.5,
             ),
           ),
         ],
