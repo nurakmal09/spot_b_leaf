@@ -9,6 +9,8 @@ class ReportDetailsPage extends StatefulWidget {
   final List recommendations;
   final String notes;
   final String additionalNotes;
+  final int healthyDays;
+  final int diseaseDays;
 
   const ReportDetailsPage({
     super.key,
@@ -19,6 +21,8 @@ class ReportDetailsPage extends StatefulWidget {
     required this.recommendations,
     required this.notes,
     required this.additionalNotes,
+    this.healthyDays = 0,
+    this.diseaseDays = 0,
   });
 
   @override
@@ -280,6 +284,96 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Health Summary
+                  const Text(
+                    'Health Summary',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green[100]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.green[600],
+                                size: 28,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                widget.healthyDays.toString(),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Healthy Days',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red[100]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red[600],
+                                size: 28,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                widget.diseaseDays.toString(),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Disease Days',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
                   // Weekly Activities Section
                   const Text(
                     'Weekly Activities',
@@ -361,6 +455,110 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                               height: 1.5,
                             ),
                           ),
+                          if (activityData['imageUrl'] != null && (activityData['imageUrl'] as String).isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            GestureDetector(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => Dialog(
+                                    backgroundColor: Colors.black,
+                                    insetPadding: EdgeInsets.zero,
+                                    child: Stack(
+                                      children: [
+                                        Center(
+                                          child: InteractiveViewer(
+                                            minScale: 0.5,
+                                            maxScale: 4.0,
+                                            child: Image.network(
+                                              activityData['imageUrl'] as String,
+                                              fit: BoxFit.contain,
+                                              loadingBuilder: (context, child, loadingProgress) {
+                                                if (loadingProgress == null) return child;
+                                                return Center(
+                                                  child: CircularProgressIndicator(
+                                                    value: loadingProgress.expectedTotalBytes != null
+                                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                        : null,
+                                                    color: Colors.white,
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Center(
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(Icons.broken_image, size: 64, color: Colors.grey[400]),
+                                                      const SizedBox(height: 16),
+                                                      Text(
+                                                        'Failed to load image',
+                                                        style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 40,
+                                          right: 20,
+                                          child: IconButton(
+                                            icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                                            onPressed: () => Navigator.pop(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  activityData['imageUrl'] as String,
+                                  width: double.infinity,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Failed to load image',
+                                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );

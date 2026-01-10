@@ -15,6 +15,7 @@ class DiseaseDetectionService {
   static const int inputSize = 224; // Custom CNN input size
   static const int numChannels = 3;
   static const int numClasses = 6; // 6 disease classes: Black Sigatoka, Bract Mosaic Virus, Cordana, Healthy Leaf, Panama, Pestalotiopsis
+  static const double bananaLeafThreshold = 0.6; // Minimum confidence to consider it a banana leaf
 
   /// Initialize the TFLite model
   Future<void> initialize() async {
@@ -121,6 +122,20 @@ class DiseaseDetectionService {
       }
     }
 
+    // Check if confidence is too low - likely not a banana leaf
+    if (maxProb < bananaLeafThreshold) {
+      return DiseaseDetectionResult(
+        diseaseName: 'Not a Banana Leaf',
+        confidence: maxProb,
+        severity: 'Invalid Image',
+        probabilities: Map.fromIterables(
+          _labels ?? List.generate(probabilities.length, (i) => 'Class $i'),
+          probabilities,
+        ),
+        isBananaLeaf: false,
+      );
+    }
+
     // Get disease name from labels
     String diseaseName = _labels != null && maxIndex < _labels!.length
         ? _labels![maxIndex]
@@ -137,6 +152,7 @@ class DiseaseDetectionService {
         _labels ?? List.generate(probabilities.length, (i) => 'Class $i'),
         probabilities,
       ),
+      isBananaLeaf: true,
     );
   }
 
@@ -202,12 +218,14 @@ class DiseaseDetectionResult {
   final double confidence;
   final String severity;
   final Map<String, double> probabilities;
+  final bool isBananaLeaf;
 
   DiseaseDetectionResult({
     required this.diseaseName,
     required this.confidence,
     required this.severity,
     required this.probabilities,
+    this.isBananaLeaf = true,
   });
 
   /// Get confidence as percentage string

@@ -16,6 +16,14 @@ class ReportPage extends StatefulWidget {
 class _ReportPageState extends State<ReportPage> {
   final Auth _auth = Auth();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +102,51 @@ class _ReportPageState extends State<ReportPage> {
               ),
             ),
 
+            // Search Bar (outside green header)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search plant name...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: Icon(Icons.search, color: Colors.green[700]),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.grey),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ),
+
             // Content Area - Saved Reports
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -145,15 +198,84 @@ class _ReportPageState extends State<ReportPage> {
                     );
                   }
 
+                  // Group reports by plant
+                  final Map<String, List<Map<String, dynamic>>> groupedReports = {};
+                  
+                  for (var doc in snapshot.data!.docs) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    data['docId'] = doc.id;
+                    final plantId = data['plantId'] as String? ?? 'Unknown';
+                    
+                    if (!groupedReports.containsKey(plantId)) {
+                      groupedReports[plantId] = [];
+                    }
+                    groupedReports[plantId]!.add(data);
+                  }
+
+                  // Sort each plant's reports by creation date (most recent first)
+                  groupedReports.forEach((plantId, reports) {
+                    reports.sort((a, b) {
+                      final aTime = (a['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                      final bTime = (b['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                      return bTime.compareTo(aTime);
+                    });
+                  });
+
+                  // Sort plants by their most recent report
+                  final sortedPlantIds = groupedReports.keys.toList()
+                    ..sort((a, b) {
+                      final aTime = (groupedReports[a]![0]['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                      final bTime = (groupedReports[b]![0]['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                      return bTime.compareTo(aTime);
+                    });
+
+                  // Filter by search query
+                  final filteredPlantIds = _searchQuery.isEmpty
+                      ? sortedPlantIds
+                      : sortedPlantIds.where((plantId) => plantId.toLowerCase().contains(_searchQuery)).toList();
+
+                  if (filteredPlantIds.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            size: 80,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'No plants found',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Try a different search term',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   return ListView.builder(
                     padding: const EdgeInsets.all(20),
-                    itemCount: snapshot.data!.docs.length,
+                    itemCount: filteredPlantIds.length,
                     itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      // Add docId to data for editing
-                      data['docId'] = doc.id;
-                      return _buildReportCard(context, data, doc.id);
+                      final plantId = filteredPlantIds[index];
+                      final reports = groupedReports[plantId]!;
+                      final firstReport = reports[0];
+                      final fieldName = firstReport['fieldName'] as String? ?? '';
+                      
+                      return _buildPlantSection(context, plantId, fieldName, reports);
                     },
                   );
                 },
@@ -162,6 +284,116 @@ class _ReportPageState extends State<ReportPage> {
           ],
         ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 4),
+    );
+  }
+
+  Widget _buildPlantSection(BuildContext context, String plantId, String fieldName, List<Map<String, dynamic>> reports) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Plant Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.green[600]!,
+                  Colors.green[700]!,
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.eco,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plantId,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (fieldName.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          fieldName,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${reports.length} ${reports.length == 1 ? 'report' : 'reports'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Reports List
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: reports.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final report = reports[index];
+              return _buildReportCard(context, report, report['docId'] as String);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -181,100 +413,107 @@ class _ReportPageState extends State<ReportPage> {
       formattedDate = '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
       ),
       child: InkWell(
         onTap: () {
           _showReportDetails(context, data);
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          plantId,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Icon(
+                          Icons.calendar_month,
+                          size: 18,
+                          color: Colors.blue[700],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Field $section, Row $row',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            weekRange,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () => _deleteReport(context, docId),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  weekRange,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue[700],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 children: [
-                  _buildStatChip(
-                    Icons.check_circle,
-                    '$healthyDays days',
-                    Colors.green,
+                  Icon(
+                    Icons.location_on,
+                    size: 14,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(width: 8),
-                  _buildStatChip(
-                    Icons.error,
-                    '$diseaseDays days',
-                    Colors.red,
+                  const SizedBox(width: 4),
+                  Text(
+                    'Section $section • Row $row',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Created: $formattedDate',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                  Row(
+                    children: [
+                      _buildStatChip(
+                        Icons.check_circle,
+                        '$healthyDays',
+                        Colors.green,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildStatChip(
+                        Icons.error,
+                        '$diseaseDays',
+                        Colors.red,
+                      ),
+                    ],
                   ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
+                  Row(
+                    children: [
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -438,6 +677,8 @@ class _ReportPageState extends State<ReportPage> {
     final docId = data['docId'] as String? ?? '';
     final plantId = data['plantId'] as String? ?? 'Unknown';
     final weekRange = data['weekRange'] as String? ?? '';
+    final healthyDays = data['healthyDays'] as int? ?? 0;
+    final diseaseDays = data['diseaseDays'] as int? ?? 0;
 
     Navigator.push(
       context,
@@ -450,6 +691,8 @@ class _ReportPageState extends State<ReportPage> {
           recommendations: recommendations,
           notes: notes,
           additionalNotes: additionalNotes,
+          healthyDays: healthyDays,
+          diseaseDays: diseaseDays,
         ),
       ),
     );

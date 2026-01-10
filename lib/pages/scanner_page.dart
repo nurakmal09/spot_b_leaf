@@ -297,35 +297,38 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
             final result = await _diseaseDetectionService.detectDisease(image.path);
             debugPrint('Detection result: $result');
             
-            // Upload image to Firebase Storage and save detection
+            // Only upload to Firebase if it's a banana leaf
             String? imageUrl;
             String? detectionId;
-            try {
-              final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
-                imagePath: image.path,
-                plantId: _selectedPlantId!,
-                diseaseType: result.diseaseName,
-                confidence: result.confidence,
-                additionalData: {
-                  'severity': result.severity,
-                  'allPredictions': result.probabilities,
-                },
-              );
-              imageUrl = uploadResult['imageUrl'];
-              detectionId = uploadResult['detectionId'];
-              debugPrint('Image uploaded to Firebase: $imageUrl');
-              debugPrint('Detection saved with ID: $detectionId');
-            } catch (uploadError) {
-              debugPrint('Error uploading to Firebase: $uploadError');
-              // Continue showing result even if upload fails
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Warning: Image upload failed - ${uploadError.toString()}'),
-                    backgroundColor: Colors.orange,
-                    duration: const Duration(seconds: 3),
-                  ),
+            
+            if (result.isBananaLeaf) {
+              try {
+                final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
+                  imagePath: image.path,
+                  plantId: _selectedPlantId!,
+                  diseaseType: result.diseaseName,
+                  confidence: result.confidence,
+                  additionalData: {
+                    'severity': result.severity,
+                    'allPredictions': result.probabilities,
+                  },
                 );
+                imageUrl = uploadResult['imageUrl'];
+                detectionId = uploadResult['detectionId'];
+                debugPrint('Image uploaded to Firebase: $imageUrl');
+                debugPrint('Detection saved with ID: $detectionId');
+              } catch (uploadError) {
+                debugPrint('Error uploading to Firebase: $uploadError');
+                // Continue showing result even if upload fails
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Warning: Image upload failed - ${uploadError.toString()}'),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
               }
             }
             
@@ -337,15 +340,25 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               _isDetecting = false;
             });
             
-            // Show success message if upload succeeded
-            if (mounted && imageUrl != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('\u2713 Image saved to Firebase successfully'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
+            // Show success or warning message
+            if (mounted) {
+              if (!result.isBananaLeaf) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Image is not a banana leaf - please try again'),
+                    backgroundColor: Colors.orange,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              } else if (imageUrl != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('\u2713 Image saved to Firebase successfully'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             }
           } catch (e) {
             debugPrint('Error detecting disease: $e');
@@ -447,6 +460,17 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
 
   Future<void> _saveToFirebase() async {
     if (_capturedImagePath == null || _diseaseResult == null || _selectedPlantId == null) {
+      return;
+    }
+
+    // Prevent saving if not a banana leaf
+    if (!_diseaseResult!.isBananaLeaf) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot save detection - image is not a banana leaf'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -565,106 +589,108 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.note_add, color: Colors.green[700], size: 28),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Add Notes (Optional)',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Add any observations or notes about this scan:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: notesController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'E.g., Noticed yellowing on edges...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.green[600]!, width: 2),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, ''),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey[400]!),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Skip',
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.note_add, color: Colors.green[700], size: 28),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Add Notes (Optional)',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Add any observations or notes about this scan:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, notesController.text),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green[700],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'E.g., Noticed yellowing on edges...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.green[600]!, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, ''),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey[400]!),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: const Text(
-                        'Save',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          'Skip',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, notesController.text),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1296,6 +1322,143 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Text('No detection result available'),
+      );
+    }
+
+    // Check if it's not a banana leaf
+    if (!result.isBananaLeaf) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.cancel, color: Colors.grey[700], size: 32),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.diseaseName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Please capture a banana leaf',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange[700], size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'The image does not appear to be a banana leaf. Please take a clear photo of a banana leaf for disease detection.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.orange[900],
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Confidence Score',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    result.confidencePercentage,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Action button - only "Scan Again" for invalid images
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _resetScanner,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.orange[700],
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: Colors.orange[700]!, width: 2),
+                ),
+                child: const Text(
+                  'Scan Again',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 

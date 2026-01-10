@@ -68,6 +68,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         final data = doc.data();
         final detectedAt = (data['detectedAt'] as Timestamp?)?.toDate();
         debugPrint('  - Detection: ${data['diseaseType']} at $detectedAt');
+        debugPrint('    Full detection data: $data');
       }
       
       // Get daily notes from fresh plant data
@@ -98,6 +99,14 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         
         debugPrint('  Detections found: ${dayDetections.length}');
         
+        // Log detection data for this day
+        if (dayDetections.isNotEmpty) {
+          for (var detection in dayDetections) {
+            final data = detection.data();
+            debugPrint('    Detection data: imageUrl=${data['imageUrl']}, diseaseType=${data['diseaseType']}, severity=${data['severity']}');
+          }
+        }
+        
         // Get notes for this day
         final notes = dailyNotes[dateKey] as String?;
         debugPrint('  Notes: $notes');
@@ -106,6 +115,11 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         final detection = dayDetections.isNotEmpty ? dayDetections.first.data() : null;
         final diseaseType = detection?['diseaseType'] as String?;
         final severity = detection?['severity'] as String?;
+        final imageUrl = detection?['imageUrl'] as String?;
+        
+        debugPrint('  Disease Type: $diseaseType');
+        debugPrint('  Severity: $severity');
+        debugPrint('  Image URL: $imageUrl');
         
         String status = 'No Record';
         Color statusColor = Colors.grey;
@@ -148,6 +162,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           'description': description,
           'status': status,
           'color': statusColor,
+          'imageUrl': imageUrl,
         });
       }
       
@@ -280,6 +295,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           'date': activity['date'],
           'description': activity['description'],
           'status': activity['status'],
+          'imageUrl': activity['imageUrl'],
         }).toList(),
         'recommendations': [
           'Continue fungicide treatment for 3 more days',
@@ -572,7 +588,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  '5',
+                                  _weeklyActivities.where((activity) => activity['status'] == 'Healthy').length.toString(),
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
@@ -610,7 +626,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  '2',
+                                  _weeklyActivities.where((activity) => activity['status'] == 'Disease' || activity['status'] == 'Monitoring').length.toString(),
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
@@ -660,6 +676,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                             activity['description'] as String,
                             activity['status'] as String,
                             activity['color'] as Color,
+                            activity['imageUrl'] as String?,
                           ),
                         );
                       }).toList(),
@@ -748,7 +765,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     );
   }
 
-  Widget _buildActivityItem(String date, String description, String status, Color statusColor) {
+  Widget _buildActivityItem(String date, String description, String status, Color statusColor, String? imageUrl) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -804,6 +821,110 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
               height: 1.5,
             ),
           ),
+          if (imageUrl != null && imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    backgroundColor: Colors.black,
+                    insetPadding: EdgeInsets.zero,
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: InteractiveViewer(
+                            minScale: 0.5,
+                            maxScale: 4.0,
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: Colors.white,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.broken_image, size: 64, color: Colors.grey[400]),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Failed to load image',
+                                        style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 40,
+                          right: 20,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Failed to load image',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
