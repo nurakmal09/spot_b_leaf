@@ -19,10 +19,24 @@ class WeeklyReportPage extends StatefulWidget {
 class _WeeklyReportPageState extends State<WeeklyReportPage> {
   List<Map<String, dynamic>> _weeklyActivities = [];
   bool _isLoading = true;
+  int _weekOffset = 0; // 0 = current week, -1 = last week, -2 = 2 weeks ago, etc.
 
   @override
   void initState() {
     super.initState();
+    _loadWeeklyActivities();
+  }
+
+  DateTime get _selectedWeekStart {
+    final now = DateTime.now();
+    final currentWeekStart = now.subtract(Duration(days: now.weekday - 1));
+    return currentWeekStart.add(Duration(days: _weekOffset * 7));
+  }
+
+  void _changeWeek(int offset) {
+    setState(() {
+      _weekOffset = offset;
+    });
     _loadWeeklyActivities();
   }
 
@@ -32,8 +46,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     });
 
     try {
-      final now = DateTime.now();
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final startOfWeek = _selectedWeekStart;
       
       // Reload fresh plant data from Firestore to get latest dailyNotes
       final plantDoc = await FirebaseFirestore.instance
@@ -174,8 +187,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       debugPrint('Error loading weekly activities: $e');
       
       // Even on error, show the 7 days with "No record"
-      final now = DateTime.now();
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final startOfWeek = _selectedWeekStart;
       final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       
@@ -201,13 +213,12 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   }
 
   String _getWeekRange() {
-    final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = _selectedWeekStart;
     final endOfWeek = startOfWeek.add(const Duration(days: 6));
     
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    return 'Week of ${months[startOfWeek.month - 1]} ${startOfWeek.day}-${endOfWeek.day}, ${endOfWeek.year}';
+    return '${months[startOfWeek.month - 1]} ${startOfWeek.day}-${endOfWeek.day}, ${endOfWeek.year}';
   }
 
   Future<void> _saveReport(BuildContext context) async {
@@ -504,32 +515,79 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Select Week label
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.calendar_today,
+                            const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Select Week',
+                              style: TextStyle(
                                 color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _getWeekRange(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Week navigation
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF66BB6A),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Left arrow button
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left, color: Colors.white, size: 24),
+                                onPressed: () => _changeWeek(_weekOffset - 1),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                tooltip: 'Previous week',
+                              ),
+                              // Week display
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      _getWeekRange(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _weekOffset == 0 ? 'Current Week' : '${_weekOffset.abs()} ${_weekOffset.abs() == 1 ? 'week' : 'weeks'} ago',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.95),
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Right arrow button
+                              IconButton(
+                                icon: Icon(
+                                  Icons.chevron_right,
+                                  color: _weekOffset < 0 ? Colors.white : Colors.white.withOpacity(0.5),
+                                  size: 24,
+                                ),
+                                onPressed: _weekOffset < 0 ? () => _changeWeek(_weekOffset + 1) : null,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                tooltip: _weekOffset < 0 ? 'Next week' : 'Current week',
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(

@@ -679,6 +679,9 @@ class _ReportPageState extends State<ReportPage> {
     final weekRange = data['weekRange'] as String? ?? '';
     final healthyDays = data['healthyDays'] as int? ?? 0;
     final diseaseDays = data['diseaseDays'] as int? ?? 0;
+    final fieldName = data['fieldName'] as String? ?? '';
+    final section = data['section']?.toString() ?? '';
+    final row = data['row']?.toString() ?? '';
 
     Navigator.push(
       context,
@@ -693,6 +696,9 @@ class _ReportPageState extends State<ReportPage> {
           additionalNotes: additionalNotes,
           healthyDays: healthyDays,
           diseaseDays: diseaseDays,
+          fieldName: fieldName,
+          section: section,
+          row: row,
         ),
       ),
     );

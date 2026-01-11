@@ -11,6 +11,9 @@ class ReportDetailsPage extends StatefulWidget {
   final String additionalNotes;
   final int healthyDays;
   final int diseaseDays;
+  final String fieldName;
+  final String section;
+  final String row;
 
   const ReportDetailsPage({
     super.key,
@@ -23,6 +26,9 @@ class ReportDetailsPage extends StatefulWidget {
     required this.additionalNotes,
     this.healthyDays = 0,
     this.diseaseDays = 0,
+    this.fieldName = '',
+    this.section = '',
+    this.row = '',
   });
 
   @override
@@ -279,6 +285,20 @@ class _ReportDetailsPageState extends State<ReportDetailsPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (widget.fieldName.isNotEmpty || widget.section.isNotEmpty || widget.row.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              [widget.fieldName, 'Section ${widget.section}', 'Row ${widget.row}']
+                                  .where((s) => s.isNotEmpty && !s.contains('N/A'))
+                                  .join(' • '),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
