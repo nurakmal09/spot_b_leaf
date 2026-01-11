@@ -207,6 +207,25 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     }
   }
 
+  void _navigateToDiseaseScanner() async {
+    if (_scannedPlantData != null && _scannedPlantDocId != null) {
+      // Pre-select the plant from QR scan
+      setState(() {
+        _selectedPlantId = _scannedPlantDocId;
+        _selectedPlantData = _scannedPlantData;
+        isDiseaseMode = true;
+        showResult = false;
+        isScanning = true;
+      });
+      
+      // Pause QR scanner and initialize camera
+      _qrController?.pauseCamera();
+      if (!_isCameraInitialized) {
+        await _initializeCamera();
+      }
+    }
+  }
+
   Future<bool> _showPlantSelection() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -1306,6 +1325,31 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
               ],
             ],
           ),
+          if (plantFound) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _navigateToDiseaseScanner,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text(
+                  'Capture Leaf',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

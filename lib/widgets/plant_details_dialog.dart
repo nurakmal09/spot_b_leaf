@@ -490,6 +490,44 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // Remove Plant Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: InkWell(
+                        onTap: () => _showRemovePlantDialog(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color.fromARGB(255, 200, 50, 50),
+                                Color.fromARGB(255, 255, 100, 100),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Remove Plant',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -835,6 +873,198 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
             Navigator.of(context, rootNavigator: true).pop();
           }
         });
+      }
+    }
+  }
+
+  void _showRemovePlantDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 28),
+            const SizedBox(width: 12),
+            const Text('Remove Plant?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to remove this plant from your garden?',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone. All plant data and history will be permanently deleted.',
+                      style: TextStyle(
+                        color: Colors.red[900],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Close confirmation dialog
+              await _deletePlant(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deletePlant(BuildContext context) async {
+    try {
+      // Show loading indicator
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Removing plant...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Delete the plant document from Firestore
+      await FirebaseFirestore.instance
+          .collection('plant')
+          .doc(widget.documentId)
+          .delete();
+
+      if (context.mounted) {
+        // Close loading dialog
+        Navigator.of(context, rootNavigator: true).pop();
+        
+        // Close the plant details dialog
+        Navigator.of(context).pop();
+        
+        // Show success notification
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Plant removed successfully',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (context.mounted) {
+        // Close loading dialog if it's still open
+        Navigator.of(context, rootNavigator: true).pop();
+        
+        // Show error message
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 28),
+                SizedBox(width: 12),
+                Text('Error'),
+              ],
+            ),
+            content: Text('Failed to remove plant: ${e.toString()}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
