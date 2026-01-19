@@ -4,7 +4,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
 class DiseaseDetectionService {
-  static const String modelPath = 'assets/models/customcnn_94.07.tflite';
+  static const String modelPath = 'assets/models/efficientnet_b0_94.07.tflite';
   static const String labelsPath = 'assets/models/labels.txt';
   
   Interpreter? _interpreter;

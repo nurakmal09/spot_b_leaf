@@ -28,8 +28,6 @@ class _DashboardPageState extends State<DashboardPage> {
   
   StreamSubscription<QuerySnapshot>? _plantsSubscription;
   
-  DateTime selectedDate = DateTime.now();
-  
   // Statistics from Firestore
   int totalPlants = 0;
   int healthyPlants = 0;
@@ -311,9 +309,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Date Selector
-                    _buildDateSelector(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
 
                     // Weather Card
                     _buildWeatherCard(),
@@ -334,57 +330,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 0),
-    );
-  }
-
-  Widget _buildDateSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              setState(() {
-                selectedDate = selectedDate.subtract(const Duration(days: 1));
-              });
-            },
-          ),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text(
-                '${_getMonthName(selectedDate.month)} ${selectedDate.day}, ${selectedDate.year}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              setState(() {
-                selectedDate = selectedDate.add(const Duration(days: 1));
-              });
-            },
-          ),
-        ],
-      ),
     );
   }
 
@@ -973,13 +918,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  String _getMonthName(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
-  }
 }
 
 // Custom Painter for Donut Chart

@@ -68,7 +68,7 @@ The training pipeline automatically applies data augmentation to balance the dat
 - Brightness adjustment (70-130%)
 
 ## Model Performance
-**Latest Model**: Custom CNN (customcnn_94.07.tflite)
+**Latest Model**: EfficientNet-B0 (efficientnet_b0_94.07.tflite)
 - **Overall Accuracy**: 94.07%
 - **Training Date**: 2025-12-11
 

@@ -1,7 +1,7 @@
 """
-Custom CNN Training Pipeline for Banana Leaf Disease Classification
+EfficientNet-B0 Training Pipeline for Banana Leaf Disease Classification
 
-This script trains a custom lightweight CNN model on the banana leaf disease dataset
+This script trains an EfficientNet-B0 model on the banana leaf disease dataset
 and generates comprehensive analysis including:
 - Training/Validation Accuracy & Loss graphs
 - Confusion Matrix
@@ -22,6 +22,7 @@ from pathlib import Path
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, models
+from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, CSVLogger
 
@@ -250,52 +251,47 @@ def compute_class_weights(train_generator):
     return class_weight_dict
 
 
-def build_custom_cnn_model():
-    """Build custom lightweight CNN model for small datasets"""
-    print("\n🏗️  Building custom CNN model...")
+def build_efficientnet_b0_model():
+    """Build EfficientNet-B0 model with transfer learning"""
+    print("\n🏗️  Building EfficientNet-B0 model with transfer learning...")
     
+    # Load pre-trained EfficientNetB0 without top layers
+    base_model = EfficientNetB0(
+        include_top=False,
+        weights='imagenet',
+        input_shape=config.INPUT_SHAPE,
+        pooling='avg'  # Global average pooling
+    )
+    
+    # Freeze base model layers initially
+    base_model.trainable = False
+    
+    # Build the complete model
     model = models.Sequential([
         # Input layer
         layers.Input(shape=config.INPUT_SHAPE),
         
-        # Block 1
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+        # EfficientNetB0 base
+        base_model,
         
-        # Block 2
-        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        
-        # Block 3
-        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.3),
-        
-        # Block 4
-        layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.3),
-        
-        # Dense layers
-        layers.Flatten(),
-        layers.Dense(256, activation='relu'),
+        # Custom classification head
         layers.BatchNormalization(),
         layers.Dropout(0.5),
-        layers.Dense(128, activation='relu'),
+        layers.Dense(256, activation='relu'),
         layers.BatchNormalization(),
         layers.Dropout(0.4),
+        layers.Dense(128, activation='relu'),
+        layers.BatchNormalization(),
+        layers.Dropout(0.3),
         
         # Output layer
         layers.Dense(len(config.CLASS_NAMES), activation='softmax')
     ])
     
-    print(f"✅ Custom CNN built with {len(config.CLASS_NAMES)} output classes")
+    print(f"✅ EfficientNet-B0 built with {len(config.CLASS_NAMES)} output classes")
+    print(f"📊 Base model: {base_model.name}")
+    print(f"🔒 Base model frozen: {not base_model.trainable}")
+    print(f"📈 Trainable parameters: {model.count_params():,}")
     
     return model
 
@@ -365,7 +361,7 @@ def plot_training_history(history, timestamp):
     
     # Create figure with subplots
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('Custom CNN Training Analysis', fontsize=16, fontweight='bold')
+    fig.suptitle('EfficientNet-B0 Training Analysis', fontsize=16, fontweight='bold')
     
     # Plot 1: Accuracy
     axes[0, 0].plot(history.history['accuracy'], label='Train Accuracy', linewidth=2)
@@ -495,7 +491,7 @@ def convert_to_tflite(model, timestamp, best_val_accuracy):
     
     # Create model name with accuracy
     accuracy_pct = f"{best_val_accuracy * 100:.2f}"
-    model_name = f'customcnn_{accuracy_pct}'
+    model_name = f'efficientnet_b0_{accuracy_pct}'
     
     # Save TFLite model
     tflite_path = config.MODELS_DIR / f'{model_name}.tflite'
@@ -519,7 +515,7 @@ def save_training_summary(history, evaluation_results, timestamp, training_durat
     """Save comprehensive training summary"""
     summary = {
         'timestamp': timestamp,
-        'model': 'CustomCNN',
+        'model': 'EfficientNet-B0',
         'dataset': {
             'total_images': 2654,
             'train_samples': history.params['steps'] * config.BATCH_SIZE,
@@ -555,7 +551,7 @@ def save_training_summary(history, evaluation_results, timestamp, training_durat
 def main():
     """Main training pipeline"""
     print("=" * 80)
-    print("🍌 BANANA LEAF DISEASE DETECTION - Custom CNN Training Pipeline")
+    print("🍌 BANANA LEAF DISEASE DETECTION - EfficientNet-B0 Training Pipeline")
     print("=" * 80)
     
     # Start timing
@@ -582,7 +578,7 @@ def main():
     class_weights = compute_class_weights(train_gen)
     
     # 4. Build model
-    model = build_custom_cnn_model()
+    model = build_efficientnet_b0_model()
     model = compile_model(model)
     
     # Print model summary

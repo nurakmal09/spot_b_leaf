@@ -82,7 +82,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/models/customcnn_94.07.tflite
+    - assets/models/efficientnet_b0_94.07.tflite
     - assets/models/labels.txt
     - assets/icon/spot b-leaf_logo.png
 

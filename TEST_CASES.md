@@ -316,6 +316,6 @@ Based on the use case diagram, the following use cases are covered:
 - **Platform**: Android (Primary), iOS (Secondary)
 - **Flutter Version**: 3.x
 - **Testing Device**: Android Emulator / Physical Device
-- **Model**: customcnn_94.07.tflite / spotbleaf_model_50epochs.tflite
+- **Model**: efficientnet_b0_94.07.tflite / spotbleaf_model_50epochs.tflite
 - **Backend**: Firebase (Authentication, Storage, Firestore)
 - **Date**: January 9, 2026

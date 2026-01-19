@@ -45,7 +45,7 @@ def convert_model_compatible():
     tflite_model = converter.convert()
     
     # Save the new model
-    output_path = OUTPUT_DIR / 'customcnn_94.07_compatible.tflite'
+    output_path = OUTPUT_DIR / 'efficientnet_b0_94.07_compatible.tflite'
     with open(output_path, 'wb') as f:
         f.write(tflite_model)
     
@@ -74,7 +74,7 @@ def convert_model_compatible():
     
     try:
         tflite_model_quant = converter2.convert()
-        output_path_quant = OUTPUT_DIR / 'customcnn_94.07_quantized.tflite'
+        output_path_quant = OUTPUT_DIR / 'efficientnet_b0_94.07_quantized.tflite'
         with open(output_path_quant, 'wb') as f:
             f.write(tflite_model_quant)
         print(f"✅ Quantized model saved to: {output_path_quant}")
@@ -87,7 +87,7 @@ def convert_model_compatible():
     print("="*80)
     print("\n📝 Next steps:")
     print("1. Copy the compatible model to assets:")
-    print(f"   Copy-Item '{output_path}' 'C:\\src\\repo\\wowooo\\assets\\models\\customcnn_94.07.tflite' -Force")
+    print(f"   Copy-Item '{output_path}' 'C:\\src\\repo\\wowooo\\assets\\models\\efficientnet_b0_94.07.tflite' -Force")
     print("\n2. Restart the Flutter app")
     print("="*80)
 

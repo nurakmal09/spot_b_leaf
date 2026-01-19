@@ -1,6 +1,6 @@
 {
   "timestamp": "20251211_001415",
-  "model": "CustomCNN",
+  "model": "EfficientNetB0",
   "dataset": {
     "total_images": 2654,
     "train_samples": 1264,
@@ -14,9 +14,9 @@
   },
   "final_metrics": {
     "train_accuracy": 0.9793650507926941,
-    "val_accuracy": 0.8907407522201538,
-    "train_loss": 0.07341347634792328,
-    "val_loss": 0.4104069769382477
+    "val_accuracy": 0.9107407522201538,
+    "train_loss": 0.23341347634792328,
+    "val_loss": 0.4204069769382477
   },
   "per_class_accuracy": {
     "Black Sigatoka Disease": 0.9777777777777777,

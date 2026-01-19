@@ -30,7 +30,6 @@ class _MyGardenPageState extends State<MyGardenPage> {
   final ScrollController _headerScrollController = ScrollController();
   final ScrollController _sidebarScrollController = ScrollController();
   
-  DateTime selectedDate = DateTime.now();
   String selectedField = 'Field A';
   
   // Store plant documents with their data
@@ -528,7 +527,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
         children: [
           // Green Header
           Container(
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+            padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 10, 16, 16),
             decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -604,9 +603,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Date Selector
-                    _buildDateSelector(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
 
                     // "My Fields" Title
                     const Text(
@@ -688,57 +685,6 @@ class _MyGardenPageState extends State<MyGardenPage> {
           ],
         ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),
-    );
-  }
-
-  Widget _buildDateSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              setState(() {
-                selectedDate = selectedDate.subtract(const Duration(days: 1));
-              });
-            },
-          ),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text(
-                '${_getMonthName(selectedDate.month)} ${selectedDate.day}, ${selectedDate.year}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              setState(() {
-                selectedDate = selectedDate.add(const Duration(days: 1));
-              });
-            },
-          ),
-        ],
-      ),
     );
   }
 
@@ -940,6 +886,9 @@ class _MyGardenPageState extends State<MyGardenPage> {
   }
 
   Widget _buildStatisticsCards(Map<String, dynamic> fieldData) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final spacing = screenWidth < 350 ? 8.0 : 12.0;
+    
     return Row(
       children: [
         Expanded(
@@ -956,7 +905,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing),
         Expanded(
           child: _buildStatCard(
             value: fieldData['healthy'].toString(),
@@ -971,7 +920,7 @@ class _MyGardenPageState extends State<MyGardenPage> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing),
         Expanded(
           child: _buildStatCard(
             value: fieldData['diseased'].toString(),
@@ -995,8 +944,13 @@ class _MyGardenPageState extends State<MyGardenPage> {
     required String label,
     required Gradient gradient,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final valueFontSize = screenWidth < 350 ? 24.0 : 32.0;
+    final labelFontSize = screenWidth < 350 ? 10.0 : 12.0;
+    final verticalPadding = screenWidth < 350 ? 12.0 : 16.0;
+    
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1016,8 +970,8 @@ class _MyGardenPageState extends State<MyGardenPage> {
             ),
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 32,
+              style: TextStyle(
+                fontSize: valueFontSize,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -1027,9 +981,12 @@ class _MyGardenPageState extends State<MyGardenPage> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: labelFontSize,
               color: Colors.grey[600],
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1096,8 +1053,11 @@ class _MyGardenPageState extends State<MyGardenPage> {
       plantPositions[key] = plant;
     }
 
+    final screenHeight = MediaQuery.of(context).size.height;
+    final gridHeight = (screenHeight * 0.5).clamp(300.0, 500.0);
+    
     return Container(
-      height: 480, // Fixed height for the grid container
+      height: gridHeight,
       decoration: BoxDecoration(
         color: Colors.green[50],
         borderRadius: BorderRadius.circular(16),
@@ -1155,13 +1115,13 @@ class _MyGardenPageState extends State<MyGardenPage> {
                     children: [
                       // Corner box
                       Container(
-                        width: 50,
-                        height: 30,
+                        width: 40,
+                        height: 28,
                         color: Colors.green[100],
                         alignment: Alignment.center,
                         child: Icon(
                           Icons.grid_on,
-                          size: 16,
+                          size: 14,
                           color: Colors.green[800],
                         ),
                       ),
@@ -1174,14 +1134,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
                           child: Row(
                             children: List.generate(maxRows, (index) {
                               return Container(
-                                width: 60,
-                                height: 30,
+                                width: 52,
+                                height: 28,
                                 color: Colors.green[50],
                                 alignment: Alignment.center,
                                 child: Text(
                                   'R${index + 1}',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.green[800],
                                   ),
@@ -1205,15 +1165,15 @@ class _MyGardenPageState extends State<MyGardenPage> {
                             children: List.generate(maxSections, (sectionIndex) {
                               final sectionNum = sectionIndex + 1;
                               return Container(
-                                width: 50,
-                                height: 64, // Match cell height
+                                width: 40,
+                                height: 56, // Match cell height
                                 color: Colors.green[50],
                                 alignment: Alignment.centerLeft,
                                 padding: const EdgeInsets.only(left: 4),
                                 child: Text(
                                   'S$sectionNum',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.green[800],
                                   ),
@@ -1239,8 +1199,8 @@ class _MyGardenPageState extends State<MyGardenPage> {
                                       final plantData = plantPositions[key];
                                       
                                       return SizedBox(
-                                        width: 60,
-                                        height: 64,
+                                        width: 52,
+                                        height: 56,
                                         child: _buildPlantCell(sectionNum, rowNum, plantData),
                                       );
                                     }),
@@ -1327,14 +1287,14 @@ class _MyGardenPageState extends State<MyGardenPage> {
         );
       },
       child: Padding(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 gradient: gradient,
                 shape: BoxShape.circle,
@@ -1342,8 +1302,8 @@ class _MyGardenPageState extends State<MyGardenPage> {
                   BoxShadow(
                     color: shadowColor.withValues(alpha: 0.3),
                     spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
@@ -1351,19 +1311,22 @@ class _MyGardenPageState extends State<MyGardenPage> {
                 child: Icon(
                   Icons.eco,
                   color: Colors.white,
-                  size: 18,
+                  size: 16,
                 ),
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              plantData['plant_id'] as String? ?? '',
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                plantData['plant_id'] as String? ?? '',
+                style: const TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                textAlign: TextAlign.center,
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
           ],
         ),
@@ -1461,14 +1424,6 @@ class _MyGardenPageState extends State<MyGardenPage> {
         ),
       ],
     );
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
   }
 
   void _showAddPlantDialog() {

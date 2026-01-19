@@ -62,7 +62,7 @@ pip install tensorflow keras numpy pillow matplotlib seaborn scikit-learn pandas
 - **Input Size:** 224x224x3 RGB images
 - **Output Classes:** 6 (1 Healthy + 5 diseases)
 - **Training Strategy:** Built-from-scratch with heavy regularization
-- **Current Model:** `../assets/models/customcnn_94.07.tflite`
+- **Current Model:** `../assets/models/efficientnet_b0_94.07.tflite`
 - **Validation Accuracy:** 94.07%
 - **Training Date:** December 11, 2025
 
@@ -133,10 +133,10 @@ Input (224x224x3)
 5. **Copy Best Model to App:**
    ```powershell
    # Model files are automatically named with accuracy
-   # Example: customcnn_94.07.tflite
+   # Example: efficientnet_b0_94.07.tflite
    
    # Copy TFLite model (use actual filename from training output)
-   Copy-Item "backend\training_output\models\customcnn_*.tflite" `
+   Copy-Item "backend\training_output\models\efficientnet_b0_*.tflite" `
              "assets\models\" -Force
    
    # Copy labels
