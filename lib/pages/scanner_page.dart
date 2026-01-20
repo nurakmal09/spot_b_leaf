@@ -4,6 +4,7 @@ import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart' as mlkit;
+import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/plant_details_dialog.dart';
 import '../widgets/plant_selection_dialog.dart';
@@ -19,6 +20,7 @@ class ScannerPage extends StatefulWidget {
 }
 
 class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
+  final Auth _auth = Auth();
   bool isDiseaseMode = false; // false = QR Code, true = Disease
   bool isScanning = true;
   bool showResult = false;
@@ -142,8 +144,18 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
 
   Future<void> _fetchPlantData(String qrCodeId) async {
     try {
-      final userId = 'tYAAISvcmtX2cULWKg3N9USbpUN2'; // TODO: Get from auth
-      debugPrint('Searching for QR code: $qrCodeId');
+      final user = _auth.currentUser;
+      if (user == null) {
+        debugPrint('No user logged in');
+        setState(() {
+          _scannedPlantData = null;
+          _scannedPlantDocId = null;
+        });
+        return;
+      }
+      
+      final userId = user.uid;
+      debugPrint('Searching for QR code: $qrCodeId for user: $userId');
       
       final querySnapshot = await FirebaseFirestore.instance
           .collection('plant')

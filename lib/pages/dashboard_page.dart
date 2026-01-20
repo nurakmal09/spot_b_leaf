@@ -40,6 +40,8 @@ class _DashboardPageState extends State<DashboardPage> {
   String? weatherRecommendation;
   bool isLoadingWeather = true;
   Position? currentPosition;
+  bool isUsingDefaultLocation = false;
+  String? locationError;
 
   @override
   void initState() {
@@ -102,6 +104,8 @@ class _DashboardPageState extends State<DashboardPage> {
     
     setState(() {
       isLoadingWeather = true;
+      locationError = null;
+      isUsingDefaultLocation = false;
     });
 
     try {
@@ -109,8 +113,10 @@ class _DashboardPageState extends State<DashboardPage> {
       final position = await _locationService.getCurrentLocation();
       
       if (position == null) {
+        // Location failed, show error
         if (!mounted) return;
         setState(() {
+          locationError = 'Unable to get your location. Check location permissions.';
           isLoadingWeather = false;
         });
         return;
@@ -155,12 +161,14 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!mounted) return;
       setState(() {
         isLoadingWeather = false;
+        isUsingDefaultLocation = false;
       });
     } catch (e) {
       // Use debugPrint to avoid lint warnings about print in production
       debugPrint('Error loading weather: $e');
       if (!mounted) return;
       setState(() {
+        locationError = 'Failed to load weather data';
         isLoadingWeather = false;
       });
     }
@@ -170,6 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadWeatherWithDefaultLocation() async {
     setState(() {
       isLoadingWeather = true;
+      locationError = null;
     });
 
     try {
@@ -213,6 +222,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
       setState(() {
         isLoadingWeather = false;
+        isUsingDefaultLocation = true;
       });
     } catch (e) {
       // Use debugPrint to avoid lint warnings about print in production
@@ -463,6 +473,61 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Location header with refresh button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isUsingDefaultLocation ? Icons.location_city : Icons.location_on,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            currentWeather!['cityName'] ?? 'Current Location',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isUsingDefaultLocation)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '(Demo Location)',
+                          style: TextStyle(
+                            color: Colors.amber.withValues(alpha: 0.9),
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _loadWeatherData,
+                icon: const Icon(Icons.refresh),
+                color: Colors.white,
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Refresh Location',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           // Current weather
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -471,14 +536,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      currentWeather!['cityName'] ?? 'Current Location',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+
                     Text(
                       currentWeather!['description'].toString().toUpperCase(),
                       style: TextStyle(

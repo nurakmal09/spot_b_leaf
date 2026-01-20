@@ -689,72 +689,49 @@ class _MyGardenPageState extends State<MyGardenPage> {
   }
 
   Widget _buildFieldSelector(Map<String, dynamic> fieldData) {
-    // Build a horizontal field selector where each field can be selected or edited.
     final fieldNames = fields.keys.toList();
+    
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: SizedBox(
-        height: 100, // Increased height to prevent overflow
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          itemCount: fieldNames.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            if (index == fieldNames.length) {
-              // Add new field card
-              return GestureDetector(
-                onTap: () => _showEditFieldDialog(isNew: true),
-                child: Container(
-                  width: 140,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 4),
-                    ],
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.add, color: Colors.green, size: 28),
-                      SizedBox(height: 8),
-                      Text('Add Field', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final name = fieldNames[index];
-            final data = fields[name]!;
-            final isSelected = name == selectedField;
-
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedField = name;
-                });
-              },
-              child: Container(
-                width: 200,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.green[50] : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)],
-                  border: Border.all(
-                    color: isSelected ? Colors.green[400]! : Colors.grey.withValues(alpha: 0.18),
-                    width: isSelected ? 1.6 : 1,
-                  ),
-                ),
-                child: Row(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.1),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+          border: Border.all(
+            color: Colors.green.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selectedField,
+            isExpanded: true,
+            icon: Icon(Icons.arrow_drop_down, color: Colors.green[700]),
+            dropdownColor: Colors.white,
+            menuMaxHeight: 400,
+            alignment: AlignmentDirectional.centerStart,
+            borderRadius: BorderRadius.circular(12),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            selectedItemBuilder: (BuildContext context) {
+              return fieldNames.map<Widget>((String name) {
+                final data = fields[name]!;
+                return Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: Colors.green[100],
                         borderRadius: BorderRadius.circular(8),
@@ -762,11 +739,15 @@ class _MyGardenPageState extends State<MyGardenPage> {
                       child: Center(
                         child: Text(
                           name.isNotEmpty ? name.substring(name.length - 1) : '?',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -778,11 +759,11 @@ class _MyGardenPageState extends State<MyGardenPage> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
+                              color: Colors.black87,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
                           Text(
                             '${data['totalPlants']} plants • ${data['diseased']} diseased',
                             style: TextStyle(
@@ -795,18 +776,131 @@ class _MyGardenPageState extends State<MyGardenPage> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(),
-                      color: Colors.grey[700],
-                      onPressed: () => _showEditFieldDialog(isNew: false, name: name),
-                    ),
                   ],
+                );
+              }).toList();
+            },
+            onChanged: (String? newValue) {
+              if (newValue != null && newValue != '_add_new_') {
+                setState(() {
+                  selectedField = newValue;
+                });
+              } else if (newValue == '_add_new_') {
+                _showEditFieldDialog(isNew: true);
+              }
+            },
+            items: [
+              ...fieldNames.map<DropdownMenuItem<String>>((String name) {
+                final data = fields[name]!;
+                final isSelected = name == selectedField;
+                return DropdownMenuItem<String>(
+                  value: name,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.green[50] : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.green[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              name.isNotEmpty ? name.substring(name.length - 1) : '?',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${data['totalPlants']} plants • ${data['diseased']} diseased',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).pop(); // Close dropdown
+                            _showEditFieldDialog(isNew: false, name: name);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.edit,
+                              size: 16,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+              // Add New Field option
+              DropdownMenuItem<String>(
+                value: '_add_new_',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, color: Colors.green[700], size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add New Field',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
