@@ -193,29 +193,39 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Text(
-                            plantId,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                plantId,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              status == 'Diseased' ? 'Disease Detected' : status,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                status == 'Diseased' ? 'Disease Detected' : status,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
@@ -263,6 +273,8 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -271,6 +283,8 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                                     color: Colors.grey[600],
                                     fontSize: 13,
                                   ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -541,19 +555,29 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
   Widget _buildInfoRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
+        Flexible(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 3,
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.visible,
           ),
         ),
       ],

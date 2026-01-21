@@ -59,17 +59,21 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalMargin = screenWidth * 0.04; // 4% of screen width
+    final navBarHeight = screenWidth < 360 ? 65.0 : 70.0; // Smaller for small screens
+    
     return Container(
       color: Colors.transparent,
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).padding.bottom,
       ),
       child: Container(
-        height: 70,
-        margin: const EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: 20,
+        height: navBarHeight,
+        margin: EdgeInsets.only(
+          left: horizontalMargin,
+          right: horizontalMargin,
+          bottom: screenWidth < 360 ? 16 : 20,
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -109,38 +113,49 @@ class BottomNavBar extends StatelessWidget {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth < 360 ? 4 : 8,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildNavItem(
-                      context: context,
-                      icon: Icons.home,
-                      label: 'Home',
-                      index: 0,
-                      isSelected: currentIndex == 0,
+                    Flexible(
+                      child: _buildNavItem(
+                        context: context,
+                        icon: Icons.home,
+                        label: 'Home',
+                        index: 0,
+                        isSelected: currentIndex == 0,
+                      ),
                     ),
-                    _buildNavItem(
-                      context: context,
-                      icon: Icons.medical_services,
-                      label: 'Treatment',
-                      index: 1,
-                      isSelected: currentIndex == 1,
+                    Flexible(
+                      child: _buildNavItem(
+                        context: context,
+                        icon: Icons.medical_services,
+                        label: 'Treatment',
+                        index: 1,
+                        isSelected: currentIndex == 1,
+                      ),
                     ),
                     _buildCenterButton(context),
-                    _buildNavItem(
-                      context: context,
-                      icon: Icons.yard,
-                      label: 'My Garden',
-                      index: 3,
-                      isSelected: currentIndex == 3,
+                    Flexible(
+                      child: _buildNavItem(
+                        context: context,
+                        icon: Icons.yard,
+                        label: 'My Garden',
+                        index: 3,
+                        isSelected: currentIndex == 3,
+                      ),
                     ),
-                    _buildNavItem(
-                      context: context,
-                      icon: Icons.description,
-                      label: 'Report',
-                      index: 4,
-                      isSelected: currentIndex == 4,
+                    Flexible(
+                      child: _buildNavItem(
+                        context: context,
+                        icon: Icons.description,
+                        label: 'Report',
+                        index: 4,
+                        isSelected: currentIndex == 4,
+                      ),
                     ),
                   ],
                 ),
@@ -159,16 +174,26 @@ class BottomNavBar extends StatelessWidget {
     required int index,
     required bool isSelected,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final iconSize = isSmallScreen ? 18.0 : 20.0;
+    final fontSize = isSmallScreen ? 8.0 : 9.0;
+    final containerWidth = isSmallScreen ? 32.0 : 40.0;
+    final containerHeight = isSmallScreen ? 22.0 : 26.0;
+    
     return GestureDetector(
       onTap: () => _onItemTapped(context, index),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: EdgeInsets.symmetric(
+          vertical: 4,
+          horizontal: isSmallScreen ? 2 : 8,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
-              height: 26,
+              width: containerWidth,
+              height: containerHeight,
               decoration: BoxDecoration(
                 color: isSelected 
                     ? const Color.fromARGB(255, 9, 91, 8).withValues(alpha: 0.8)
@@ -186,18 +211,23 @@ class BottomNavBar extends StatelessWidget {
                 color: isSelected 
                     ? Colors.white
                     : Colors.white.withValues(alpha: 0.6),
-                size: 20,
+                size: iconSize,
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected 
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected 
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.8),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -207,11 +237,16 @@ class BottomNavBar extends StatelessWidget {
   }
 
   Widget _buildCenterButton(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final buttonSize = isSmallScreen ? 44.0 : 50.0;
+    final iconSize = isSmallScreen ? 22.0 : 24.0;
+    
     return GestureDetector(
       onTap: () => _onItemTapped(context, 2),
       child: Container(
-        width: 50,
-        height: 50,
+        width: buttonSize,
+        height: buttonSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
@@ -231,10 +266,10 @@ class BottomNavBar extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(
+        child: Icon(
           Icons.camera_alt,
           color: Colors.white,
-          size: 24,
+          size: iconSize,
         ),
       ),
     );

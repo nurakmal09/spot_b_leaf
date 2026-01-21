@@ -204,37 +204,52 @@ class _TreatmentPageState extends State<TreatmentPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Treatment Guide',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Treatment Guide',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Disease management solutions',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 13,
+                            SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Disease management solutions',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            icon: const Icon(Icons.help_outline, color: Colors.white, size: 22),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
                             onPressed: () {
                               UserGuideDialog.show(context);
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.settings, color: Colors.white),
+                            icon: const Icon(Icons.settings, color: Colors.white, size: 22),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -429,23 +444,29 @@ class _TreatmentPageState extends State<TreatmentPage> {
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.visible,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: riskTextColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  riskLevel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: riskTextColor,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: riskTextColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    riskLevel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: riskTextColor,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -459,6 +480,8 @@ class _TreatmentPageState extends State<TreatmentPage> {
               fontStyle: FontStyle.italic,
               color: Colors.grey[700],
             ),
+            maxLines: 2,
+            overflow: TextOverflow.visible,
           ),
           const SizedBox(height: 12),
           ...treatments.map((treatment) => Padding(
