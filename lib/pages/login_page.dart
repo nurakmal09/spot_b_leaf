@@ -291,46 +291,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               ),
-              const SizedBox(height: 24),
-
-              // Sign in with Google
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement Google sign in
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Google sign in coming soon'),
-                      ),
-                    );
-                  },
-                  icon: Image.asset(
-                    'assets/google_logo.png',
-                    height: 20,
-                    width: 20,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.g_mobiledata, color: Colors.red);
-                    },
-                  ),
-                  label: const Text(
-                    'Log in with google',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    side: BorderSide(color: Colors.grey[300]!),
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-              ),
               const SizedBox(height: 40),
 
               // Sign Up Link
