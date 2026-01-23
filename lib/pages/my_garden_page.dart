@@ -195,7 +195,10 @@ class _MyGardenPageState extends State<MyGardenPage> {
               plantStatus = PlantStatus.diseased;
               fieldStats[fieldName]!['diseased'] = (fieldStats[fieldName]!['diseased'] as int) + 1;
             } else if (statusStr == 'warning') {
+              // Count warning (Low/Medium Risk) as diseased in statistics
               plantStatus = PlantStatus.warning;
+              fieldStats[fieldName]!['diseased'] = (fieldStats[fieldName]!['diseased'] as int) + 1;
+              // Still track warning separately for visual indicators
               fieldStats[fieldName]!['warning'] = (fieldStats[fieldName]!['warning'] as int) + 1;
             } else {
               fieldStats[fieldName]!['healthy'] = (fieldStats[fieldName]!['healthy'] as int) + 1;

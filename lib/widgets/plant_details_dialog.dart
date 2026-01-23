@@ -31,9 +31,10 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     _notesController = TextEditingController(
       text: widget.plantData['notes'] as String? ?? '',
     );
-    
+
     // Load today's notes
-    final todayNotesData = widget.plantData['dailyNotes'] as Map<String, dynamic>?;
+    final todayNotesData =
+        widget.plantData['dailyNotes'] as Map<String, dynamic>?;
     final todayKey = _getTodayKey();
     _todayNotesController = TextEditingController(
       text: todayNotesData?[todayKey] as String? ?? '',
@@ -73,7 +74,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
 
   String _formatDayPlanted(dynamic timestamp) {
     if (timestamp == null) return 'Not specified';
-    
+
     try {
       DateTime plantDate;
       if (timestamp is Timestamp) {
@@ -83,14 +84,14 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       } else {
         return 'Not specified';
       }
-      
+
       // Format: DD/MM/YYYY at HH:MM
       final day = plantDate.day.toString().padLeft(2, '0');
       final month = plantDate.month.toString().padLeft(2, '0');
       final year = plantDate.year.toString();
       final hour = plantDate.hour.toString().padLeft(2, '0');
       final minute = plantDate.minute.toString().padLeft(2, '0');
-      
+
       return '$day/$month/$year at $hour:$minute';
     } catch (e) {
       return 'Not specified';
@@ -99,12 +100,12 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
 
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return 'Just now';
-    
+
     try {
       final date = timestamp.toDate();
       final now = DateTime.now();
       final difference = now.difference(date);
-      
+
       if (difference.inMinutes < 1) {
         return 'Just now';
       } else if (difference.inHours < 1) {
@@ -131,9 +132,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     final statusColor = _getStatusColor();
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: Column(
@@ -154,10 +153,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                 children: [
                   const Text(
                     'Plant Details',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -220,7 +216,9 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                status == 'Diseased' ? 'Disease Detected' : status,
+                                status == 'Diseased'
+                                    ? 'Disease Detected'
+                                    : status,
                                 style: TextStyle(
                                   color: statusColor,
                                   fontWeight: FontWeight.w600,
@@ -260,7 +258,11 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                               color: Colors.purple[50],
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(Icons.qr_code, color: Colors.purple[600], size: 28),
+                            child: Icon(
+                              Icons.qr_code,
+                              color: Colors.purple[600],
+                              size: 28,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -300,12 +302,11 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Colors.purple[700]!,
-                              Colors.purple[500]!,
-                            ],
+                            colors: [Colors.purple[700]!, Colors.purple[500]!],
                           ),
-                          borderRadius: const BorderRadius.all(Radius.circular(8)),
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(8),
+                          ),
                         ),
                         child: ElevatedButton(
                           onPressed: () {
@@ -340,10 +341,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                     const SizedBox(height: 8),
                     Text(
                       _getTodayKey(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -362,16 +360,22 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+                          borderSide: BorderSide(
+                            color: Colors.blue[600]!,
+                            width: 2,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.blue[50],
                       ),
                       onChanged: (value) {
                         final todayKey = _getTodayKey();
-                        final currentDailyNotes = widget.plantData['dailyNotes'] as Map<String, dynamic>? ?? {};
+                        final currentDailyNotes =
+                            widget.plantData['dailyNotes']
+                                as Map<String, dynamic>? ??
+                            {};
                         currentDailyNotes[todayKey] = value;
-                        
+
                         // Save to Firestore
                         FirebaseFirestore.instance
                             .collection('plant')
@@ -382,7 +386,11 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: Colors.grey[600]),
+                        Icon(
+                          Icons.check_circle,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Saved automatically',
@@ -397,7 +405,10 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
 
                     // Recommendations (only for healthy plants)
                     if (status == 'Healthy') ...[
-                      _buildSectionTitle(Icons.lightbulb_outline, 'Care Recommendations'),
+                      _buildSectionTitle(
+                        Icons.lightbulb_outline,
+                        'Care Recommendations',
+                      ),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -408,13 +419,21 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildRecommendationItem('Continue regular monitoring weekly'),
+                            _buildRecommendationItem(
+                              'Continue regular monitoring weekly',
+                            ),
                             const SizedBox(height: 8),
-                            _buildRecommendationItem('Maintain proper watering schedule'),
+                            _buildRecommendationItem(
+                              'Maintain proper watering schedule',
+                            ),
                             const SizedBox(height: 8),
-                            _buildRecommendationItem('Apply balanced fertilizer monthly'),
+                            _buildRecommendationItem(
+                              'Apply balanced fertilizer monthly',
+                            ),
                             const SizedBox(height: 8),
-                            _buildRecommendationItem('Ensure adequate spacing for air circulation'),
+                            _buildRecommendationItem(
+                              'Ensure adequate spacing for air circulation',
+                            ),
                           ],
                         ),
                       ),
@@ -456,10 +475,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                     const SizedBox(height: 8),
                     Text(
                       'Notes are saved automatically',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     const SizedBox(height: 24),
 
@@ -483,10 +499,11 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => WeeklyReportPage(
-                                  plantData: widget.plantData,
-                                  documentId: widget.documentId,
-                                ),
+                                builder:
+                                    (context) => WeeklyReportPage(
+                                      plantData: widget.plantData,
+                                      documentId: widget.documentId,
+                                    ),
                               ),
                             );
                           },
@@ -527,7 +544,11 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                              const Icon(
+                                Icons.delete_outline,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Remove Plant',
@@ -561,10 +582,8 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
           flex: 2,
           child: Text(
             label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            softWrap: true,
           ),
         ),
         const SizedBox(width: 8),
@@ -572,12 +591,10 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
           flex: 3,
           child: Text(
             value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             textAlign: TextAlign.right,
             overflow: TextOverflow.visible,
+            softWrap: true,
           ),
         ),
       ],
@@ -586,211 +603,228 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
 
   void _showQRCodeDialog(BuildContext context) {
     final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
-    final qrCodeId = widget.plantData['qr_code_id'] as String? ?? widget.documentId;
+    final qrCodeId =
+        widget.plantData['qr_code_id'] as String? ?? widget.documentId;
     final section = widget.plantData['section']?.toString() ?? 'N/A';
     final row = widget.plantData['row']?.toString() ?? 'N/A';
     final GlobalKey qrKey = GlobalKey();
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-          ),
-          child: SingleChildScrollView(
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Plant QR Code',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Plant ID: $plantId',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // QR Code with RepaintBoundary for capturing
+                      RepaintBoundary(
+                        key: qrKey,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.purple[100]!,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.purple.withValues(alpha: 0.1),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: QrImageView(
+                            data: qrCodeId,
+                            version: QrVersions.auto,
+                            size: MediaQuery.of(context).size.width * 0.5,
+                            backgroundColor: Colors.white,
+                            errorCorrectionLevel: QrErrorCorrectLevel.H,
+                            embeddedImage: null,
+                            embeddedImageStyle: null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Plant Info
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.purple[50],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Plant QR Code',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.purple[700],
-                              ),
+                            _buildQRInfoRow('Plant ID', plantId),
+                            const SizedBox(height: 8),
+                            _buildQRInfoRow('Section', section),
+                            const SizedBox(height: 8),
+                            _buildQRInfoRow('Row', row),
+                            const SizedBox(height: 8),
+                            _buildQRInfoRow('Status', _getStatusText()),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Download Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              () => _downloadQRCode(context, qrKey, plantId),
+                          icon: const Icon(Icons.download),
+                          label: const Text(
+                            'Download QR Code',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Plant ID: $plantId',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Instructions
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue[100]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.blue[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Scan this QR code to quickly access plant information',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue[900],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-
-                  // QR Code with RepaintBoundary for capturing
-                  RepaintBoundary(
-                    key: qrKey,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.purple[100]!, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.purple.withValues(alpha: 0.1),
-                            blurRadius: 10,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: QrImageView(
-                        data: qrCodeId,
-                        version: QrVersions.auto,
-                        size: MediaQuery.of(context).size.width * 0.5,
-                        backgroundColor: Colors.white,
-                        errorCorrectionLevel: QrErrorCorrectLevel.H,
-                        embeddedImage: null,
-                        embeddedImageStyle: null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Plant Info
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.purple[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildQRInfoRow('Plant ID', plantId),
-                        const SizedBox(height: 8),
-                        _buildQRInfoRow('Section', section),
-                        const SizedBox(height: 8),
-                        _buildQRInfoRow('Row', row),
-                        const SizedBox(height: 8),
-                        _buildQRInfoRow('Status', _getStatusText()),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Download Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _downloadQRCode(context, qrKey, plantId),
-                      icon: const Icon(Icons.download),
-                      label: const Text(
-                        'Download QR Code',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Instructions
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[100]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Scan this QR code to quickly access plant information',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.blue[900],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 
-  Future<void> _downloadQRCode(BuildContext context, GlobalKey qrKey, String plantId) async {
+  Future<void> _downloadQRCode(
+    BuildContext context,
+    GlobalKey qrKey,
+    String plantId,
+  ) async {
     try {
       // Show loading indicator
       if (context.mounted) {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Saving QR Code...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Saving QR Code...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
         );
       }
 
@@ -798,7 +832,9 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       RenderRepaintBoundary boundary =
           qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
       ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       Uint8List pngBytes = byteData!.buffer.asUint8List();
 
       // Save to gallery using gal package
@@ -807,39 +843,40 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       if (context.mounted) {
         // Close loading dialog
         Navigator.of(context, rootNavigator: true).pop();
-        
+
         // Show success notification
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'QR Code saved to gallery!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'QR Code saved to gallery!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
@@ -851,46 +888,48 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       if (context.mounted) {
         // Close loading dialog if it's still open
         Navigator.of(context, rootNavigator: true).pop();
-        
+
         String errorMessage = 'Error saving QR code';
         if (e is GalException) {
           if (e.type == GalExceptionType.accessDenied) {
-            errorMessage = 'Storage permission denied. Please enable it in Settings.';
+            errorMessage =
+                'Storage permission denied. Please enable it in Settings.';
           }
         }
-        
+
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error, color: Colors.white, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      errorMessage,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error, color: Colors.white, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          errorMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
         Future.delayed(const Duration(seconds: 3), () {
           if (context.mounted) {
@@ -904,68 +943,77 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
   void _showRemovePlantDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 28),
-            const SizedBox(width: 12),
-            const Text('Remove Plant?'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Are you sure you want to remove this plant from your garden?',
-              style: TextStyle(fontSize: 16),
+      builder:
+          (BuildContext dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.red[700], size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This action cannot be undone. All plant data and history will be permanently deleted.',
-                      style: TextStyle(
-                        color: Colors.red[900],
-                        fontSize: 13,
-                      ),
-                    ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange[700],
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Text('Remove Plant?'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Are you sure you want to remove this plant from your garden?',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.red[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This action cannot be undone. All plant data and history will be permanently deleted.',
+                          style: TextStyle(
+                            color: Colors.red[900],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(dialogContext); // Close confirmation dialog
+                  await _deletePlant(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Remove'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext); // Close confirmation dialog
-              await _deletePlant(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -976,36 +1024,39 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Removing plant...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Removing plant...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
         );
       }
 
@@ -1018,42 +1069,43 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       if (context.mounted) {
         // Close loading dialog
         Navigator.of(context, rootNavigator: true).pop();
-        
+
         // Close the plant details dialog
         Navigator.of(context).pop();
-        
+
         // Show success notification
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Plant removed successfully',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'Plant removed successfully',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
@@ -1065,29 +1117,30 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       if (context.mounted) {
         // Close loading dialog if it's still open
         Navigator.of(context, rootNavigator: true).pop();
-        
+
         // Show error message
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 28),
-                SizedBox(width: 12),
-                Text('Error'),
-              ],
-            ),
-            content: Text('Failed to remove plant: ${e.toString()}'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+          builder:
+              (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: const Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 28),
+                    SizedBox(width: 12),
+                    Text('Error'),
+                  ],
+                ),
+                content: Text('Failed to remove plant: ${e.toString()}'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       }
     }
@@ -1107,10 +1160,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -1121,11 +1171,12 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       children: [
         Icon(icon, size: 20, color: Colors.grey[700]),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ),
       ],
@@ -1149,10 +1200,7 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              color: Colors.blue[900],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.blue[900], fontSize: 14),
           ),
         ),
       ],
@@ -1161,17 +1209,19 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
 
   Widget _buildDiseaseInfoSection() {
     final lastDiseaseType = widget.plantData['lastDiseaseType'] as String?;
-    final lastDiseaseConfidence = widget.plantData['lastDiseaseConfidence'] as double?;
+    final lastDiseaseConfidence =
+        widget.plantData['lastDiseaseConfidence'] as double?;
     final lastDiseaseCheck = widget.plantData['lastDiseaseCheck'] as Timestamp?;
-    
+
     if (lastDiseaseType == null) {
       return const SizedBox.shrink();
     }
 
     // Format confidence percentage
-    final confidencePercent = lastDiseaseConfidence != null 
-        ? (lastDiseaseConfidence * 100).toStringAsFixed(1) 
-        : 'N/A';
+    final confidencePercent =
+        lastDiseaseConfidence != null
+            ? (lastDiseaseConfidence * 100).toStringAsFixed(1)
+            : 'N/A';
 
     // Format last check date
     String lastCheckDate = 'N/A';
@@ -1184,11 +1234,12 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
     Color severityColor = Colors.orange;
     String severityText = 'Medium Risk';
     final disease = lastDiseaseType.toLowerCase();
-    
+
     if (disease.contains('healthy')) {
       severityColor = Colors.green;
       severityText = 'Healthy';
-    } else if (disease.contains('panama') || disease.contains('bract mosaic virus')) {
+    } else if (disease.contains('panama') ||
+        disease.contains('bract mosaic virus')) {
       severityColor = Colors.red;
       severityText = 'High Risk';
     } else if (disease.contains('sigatoka') || disease.contains('cordana')) {
@@ -1209,7 +1260,10 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
           decoration: BoxDecoration(
             color: severityColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: severityColor.withValues(alpha: 0.3), width: 1),
+            border: Border.all(
+              color: severityColor.withValues(alpha: 0.3),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1233,9 +1287,17 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
               const SizedBox(height: 12),
               _buildDiseaseInfoRow('Severity', severityText, severityColor),
               const Divider(height: 16),
-              _buildDiseaseInfoRow('Confidence', '$confidencePercent%', severityColor),
+              _buildDiseaseInfoRow(
+                'Confidence',
+                '$confidencePercent%',
+                severityColor,
+              ),
               const Divider(height: 16),
-              _buildDiseaseInfoRow('Last Checked', lastCheckDate, severityColor),
+              _buildDiseaseInfoRow(
+                'Last Checked',
+                lastCheckDate,
+                severityColor,
+              ),
             ],
           ),
         ),
@@ -1260,21 +1322,32 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
   Widget _buildDiseaseInfoRow(String label, String value, Color color) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: color.withValues(alpha: 0.8),
-            fontWeight: FontWeight.w500,
+        Flexible(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: color.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w500,
+            ),
+            softWrap: true,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: color,
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 2,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            textAlign: TextAlign.right,
+            softWrap: true,
           ),
         ),
       ],
@@ -1343,9 +1416,13 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
       ];
     }
 
-    return treatments.map((treatment) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: _buildRecommendationItem(treatment),
-    )).toList();
+    return treatments
+        .map(
+          (treatment) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildRecommendationItem(treatment),
+          ),
+        )
+        .toList();
   }
 }

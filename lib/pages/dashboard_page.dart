@@ -81,12 +81,13 @@ class _DashboardPageState extends State<DashboardPage> {
           
           if (statusList != null && statusList.isNotEmpty) {
             final statusStr = statusList[0].toString().toLowerCase();
-            if (statusStr == 'diseased') {
+            if (statusStr == 'diseased' || statusStr == 'warning') {
+              // Count both diseased and warning (Low/Medium Risk) as diseased
               diseasedPlants++;
             } else if (statusStr == 'healthy') {
               healthyPlants++;
             } else {
-              // Warning counts as healthy for now
+              // Unknown status counts as healthy
               healthyPlants++;
             }
           } else {

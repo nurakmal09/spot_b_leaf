@@ -1,15 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart' as mlkit;
+import 'package:path_provider/path_provider.dart';
 import '../auth.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/plant_details_dialog.dart';
 import '../widgets/plant_selection_dialog.dart';
 import '../services/disease_detection_service.dart';
 import '../services/firebase_storage_service.dart';
+import '../services/local_database_service.dart';
+import '../services/connectivity_service.dart';
+import '../services/sync_service.dart';
 import 'settings_page.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -44,11 +50,15 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   // Disease detection
   final DiseaseDetectionService _diseaseDetectionService = DiseaseDetectionService();
   final FirebaseStorageService _storageService = FirebaseStorageService();
+  final LocalDatabaseService _localDb = LocalDatabaseService();
+  final ConnectivityService _connectivity = ConnectivityService();
+  final SyncService _syncService = SyncService();
   DiseaseDetectionResult? _diseaseResult;
   bool _isDetecting = false;
   String? _uploadedImageUrl;
   String? _capturedImagePath;
   bool _isSaving = false;
+  int _pendingSyncCount = 0;
   
   // Selected plant for disease detection
   String? _selectedPlantId;
@@ -58,13 +68,43 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Initialize services
+    _initializeServices();
+    
     // Initialize disease detection service
     _diseaseDetectionService.initialize().catchError((e) {
       debugPrint('Failed to initialize disease detection: $e');
     });
+    
     // Only initialize camera if in disease mode
     if (isDiseaseMode) {
       _initializeCamera();
+    }
+  }
+
+  Future<void> _initializeServices() async {
+    // Initialize connectivity monitoring
+    await _connectivity.initialize();
+    
+    // Initialize sync service
+    await _syncService.initialize();
+    
+    // Update pending sync count
+    _updatePendingSyncCount();
+    
+    // Listen for sync status changes
+    _syncService.syncStatusStream.listen((_) {
+      _updatePendingSyncCount();
+    });
+  }
+
+  Future<void> _updatePendingSyncCount() async {
+    final count = await _syncService.getPendingSyncCount();
+    if (mounted) {
+      setState(() {
+        _pendingSyncCount = count;
+      });
     }
   }
 
@@ -517,83 +557,260 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
     });
 
     try {
-      // Get today's date key
-      final now = DateTime.now();
-      final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final localId = 'scan_${DateTime.now().millisecondsSinceEpoch}';
+      final scanTimestamp = DateTime.now();
+
+      // 🔥 CACHE-FIRST APPROACH: Always save to local database first
+      // Copy image to permanent storage location
+      String permanentImagePath = _capturedImagePath!;
+      String? imageBase64;
       
-      // Prepare daily notes update
-      final dailyNotesUpdate = notes.isNotEmpty ? {
-        'dailyNotes.$todayKey': notes,
-      } : null;
-      
-      final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
-        imagePath: _capturedImagePath!,
-        plantId: _selectedPlantId!,
-        diseaseType: _diseaseResult!.diseaseName,
-        confidence: _diseaseResult!.confidence,
-        additionalData: {
-          'severity': _diseaseResult!.severity,
-          'allPredictions': _diseaseResult!.probabilities,
-          if (dailyNotesUpdate != null) ...dailyNotesUpdate,
-        },
+      try {
+        final imageFile = File(_capturedImagePath!);
+        final bytes = await imageFile.readAsBytes();
+        
+        // Create permanent storage directory
+        final appDir = await getApplicationDocumentsDirectory();
+        final permanentDir = Directory('${appDir.path}/disease_scans');
+        if (!await permanentDir.exists()) {
+          await permanentDir.create(recursive: true);
+        }
+        
+        // Save image to permanent location
+        final permanentFile = File('${permanentDir.path}/$localId.jpg');
+        await permanentFile.writeAsBytes(bytes);
+        permanentImagePath = permanentFile.path;
+        
+        // Also encode to base64 as backup
+        imageBase64 = base64Encode(bytes);
+        
+        debugPrint('✅ Image saved to permanent storage: $permanentImagePath');
+      } catch (e) {
+        debugPrint('Warning: Could not save image permanently: $e');
+        // Fall back to original path
+      }
+
+      // Save to local database with permanent image path
+      await _localDb.saveScanLocally(
+        localId: localId,
+        userId: userId,
+        plantId: _selectedPlantId,
+        plantName: _selectedPlantData?['name'],
+        diseaseName: _diseaseResult!.diseaseName,
+        confidenceScore: _diseaseResult!.confidence,
+        severity: _diseaseResult!.severity,
+        imagePath: permanentImagePath,  // Use permanent path
+        scanTimestamp: scanTimestamp,
+        imageBase64: imageBase64,
       );
-      
-      final imageUrl = uploadResult['imageUrl'];
-      final detectionId = uploadResult['detectionId'];
-      debugPrint('Image uploaded to Firebase: $imageUrl');
-      debugPrint('Detection saved with ID: $detectionId');
 
-      setState(() {
-        _uploadedImageUrl = imageUrl;
-        _isSaving = false;
-      });
+      debugPrint('✅ Scan saved to local cache: $localId');
 
-      if (mounted) {
-        // Show success popup dialog
-        showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Image saved to Firebase successfully!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+      // Check if online - if yes, sync immediately; if no, queue for later
+      if (_connectivity.isConnected) {
+        try {
+          debugPrint('📶 Online - attempting immediate Firebase sync...');
+          
+          // Get today's date key for notes
+          final now = DateTime.now();
+          final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          
+          // Prepare daily notes update
+          final dailyNotesUpdate = notes.isNotEmpty ? {
+            'dailyNotes.$todayKey': notes,
+          } : null;
+          
+          final uploadResult = await _storageService.uploadAndSaveDiseaseDetection(
+            imagePath: _capturedImagePath!,
+            plantId: _selectedPlantId!,
+            diseaseType: _diseaseResult!.diseaseName,
+            confidence: _diseaseResult!.confidence,
+            additionalData: {
+              'severity': _diseaseResult!.severity,
+              'allPredictions': _diseaseResult!.probabilities,
+              if (dailyNotesUpdate != null) ...dailyNotesUpdate,
+            },
+          );
+          
+          final imageUrl = uploadResult['imageUrl'];
+          final detectionId = uploadResult['detectionId'] as String;
+          
+          // Mark as synced in local database
+          await _localDb.markAsSynced(localId, detectionId);
+          
+          debugPrint('✅ Scan synced to Firebase: $detectionId');
+          debugPrint('Image uploaded: $imageUrl');
+
+          setState(() {
+            _uploadedImageUrl = imageUrl;
+            _isSaving = false;
+          });
+
+          if (mounted) {
+            // Show success popup dialog
+            showDialog(
+              context: context,
+              barrierDismissible: true,
+              builder: (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'Scan saved and synced to cloud!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+            
+            // Auto close popup and reset after 3.5 seconds
+            await Future.delayed(const Duration(milliseconds: 3500));
+            if (mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              await Future.delayed(const Duration(milliseconds: 500));
+              _resetScanner();
+            }
+          }
+        } catch (syncError) {
+          debugPrint('⚠️  Firebase sync failed, but saved locally: $syncError');
+          
+          setState(() {
+            _isSaving = false;
+          });
+
+          if (mounted) {
+            // Show offline success message
+            showDialog(
+              context: context,
+              barrierDismissible: true,
+              builder: (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.cloud_off, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'Saved locally!\nWill sync to cloud when online.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+            
+            await Future.delayed(const Duration(milliseconds: 3500));
+            if (mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              await Future.delayed(const Duration(milliseconds: 500));
+              _resetScanner();
+            }
+          }
+        }
+      } else {
+        // Offline - just show saved locally message
+        debugPrint('📵 Offline - scan queued for sync');
+        
+        setState(() {
+          _isSaving = false;
+        });
+
+        // Update pending count
+        await _updatePendingSyncCount();
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (context) => Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.offline_bolt, color: Colors.white, size: 48),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Saved offline!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Will sync automatically when connected.\n${_pendingSyncCount} scan${_pendingSyncCount != 1 ? 's' : ''} pending.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        
-        // Auto close popup and reset after 3.5 seconds
-        await Future.delayed(const Duration(milliseconds: 3500));
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-          await Future.delayed(const Duration(milliseconds: 500));
-          _resetScanner();
+          );
+          
+          await Future.delayed(const Duration(milliseconds: 3500));
+          if (mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            await Future.delayed(const Duration(milliseconds: 500));
+            _resetScanner();
+          }
         }
       }
     } catch (e) {
-      debugPrint('Error uploading to Firebase: $e');
+      debugPrint('Error saving scan: $e');
       setState(() {
         _isSaving = false;
       });
@@ -747,13 +964,28 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              isDiseaseMode ? 'Disease Scanner' : 'QR Code Scanner',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  isDiseaseMode ? 'Disease Scanner' : 'QR Code Scanner',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Connection indicator
+                                Icon(
+                                  _connectivity.isConnected 
+                                      ? Icons.cloud_done 
+                                      : Icons.cloud_off,
+                                  color: _connectivity.isConnected 
+                                      ? Colors.green 
+                                      : Colors.orange,
+                                  size: 20,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -767,6 +999,64 @@ class _ScannerPageState extends State<ScannerPage> with WidgetsBindingObserver {
                                 fontSize: 14,
                               ),
                             ),
+                            // Show pending sync count if any
+                            if (_pendingSyncCount > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    // Manual sync trigger
+                                    final result = await _syncService.forceSyncNow();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result.message),
+                                          backgroundColor: result.success 
+                                              ? Colors.green 
+                                              : Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.sync,
+                                          color: Colors.blue,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$_pendingSyncCount pending sync',
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          '(tap to sync)',
+                                          style: TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
