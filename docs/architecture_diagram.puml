@@ -1,0 +1,73 @@
+@startuml System Architecture Diagram
+
+' Presentation Tier
+package "Presentation Tier (Flutter/Dart)" #DDCCFF {
+  [Dashboard Page]
+  [Treatment Page]
+  [Scanner Page]
+  [My Garden Page]
+  [Report Page]
+  [Settings Page]
+  [Reusable Widgets]
+}
+
+' Business Logic Tier
+package "Business Logic Tier (Service Layer)" #CCFFCC {
+  [Authentication Service]
+  [Disease Detection Service]
+  [QR Migration Service]
+  [Camera & Image Service]
+  [Weather Service]
+  [Sync Service]
+  [Analytics/Reporting Service]
+  [Notification Service]
+}
+
+' Data Tier
+package "Data Tier" #CCE5FF {
+  package "Firebase Cloud Services" {
+    [Authentication]
+    [Firestore Database]
+    [Firebase Storage]
+    [Firebase Cloud Messaging]
+  }
+  package "External APIs" {
+    [Weather API]
+  }
+  package "Local Device Storage" {
+    [TF Lite Model]
+    [Offline Cache]
+  }
+}
+
+' Connections
+[Dashboard Page] --> [Authentication Service]
+[Treatment Page] --> [Disease Detection Service]
+[Scanner Page] --> [QR Migration Service]
+[Scanner Page] --> [Camera & Image Service]
+[Scanner Page] --> [Disease Detection Service]
+[My Garden Page] --> [Authentication Service]
+[Report Page] --> [Analytics/Reporting Service]
+[Settings Page] --> [Authentication Service]
+[Reusable Widgets] ..> [Dashboard Page]
+[Reusable Widgets] ..> [Treatment Page]
+[Reusable Widgets] ..> [Scanner Page]
+[Reusable Widgets] ..> [My Garden Page]
+[Reusable Widgets] ..> [Report Page]
+[Reusable Widgets] ..> [Settings Page]
+
+[Authentication Service] --> [Authentication]
+[Disease Detection Service] --> [TF Lite Model]
+[Disease Detection Service] --> [Firestore Database]
+[Disease Detection Service] --> [Firebase Storage]
+[Disease Detection Service] --> [Sync Service]
+[Disease Detection Service] --> [Weather Service]
+[QR Migration Service] --> [Firestore Database]
+[Camera & Image Service] --> [Local Device Storage]
+[Weather Service] --> [Weather API]
+[Sync Service] --> [Firestore Database]
+[Sync Service] --> [Offline Cache]
+[Analytics/Reporting Service] --> [Firestore Database]
+[Notification Service] --> [Firebase Cloud Messaging]
+
+@enduml

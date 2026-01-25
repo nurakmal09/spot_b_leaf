@@ -199,7 +199,49 @@
 
 ---
 
-## Table 14: Test Case Disease Scanner - Camera Permission
+## Table 14: Test Case Disease Scanner - Offline Mode Capture
+
+| **Test Case** | Disease Scanner - Offline Image Capture |
+|---------------|----------------------------------------|
+| **Test Case Priority** | High |
+| **Test Case Description** | User captures and scans leaf image while device is offline. |
+| **Steps** | 1. User disables internet connection<br>2. User opens disease scanner<br>3. User captures leaf image<br>4. System processes image with local TFLite model<br>5. System saves scan to local SQLite database<br>6. User re-enables internet<br>7. System auto-syncs data to Firebase |
+
+| **Input** | **Expected Output** | **Actual Output** | **Pass/Fail** |
+|-----------|-------------------|------------------|---------------|
+| Network Status: **Offline**<br><br>Image: Healthy banana leaf<br>224x224 pixels | Disease detected using local model<br>Results displayed: "Healthy"<br>Image saved to permanent storage<br>Scan data saved to SQLite<br>"Saved offline - will sync when online" message shown | Disease: "Healthy" (94.2%)<br>Results displayed successfully<br>Image stored in /disease_scans/<br>SQLite record created<br>"Saved offline" message shown<br>Auto-synced when online | Pass |
+
+---
+
+## Table 15: Test Case Disease Scanner - Offline Multiple Scans
+
+| **Test Case** | Disease Scanner - Multiple Offline Scans |
+|---------------|------------------------------------------|
+| **Test Case Priority** | High |
+| **Test Case Description** | User performs multiple scans while offline and verifies all data syncs when connection is restored. |
+| **Steps** | 1. User disables internet<br>2. User performs 3 consecutive scans<br>3. System saves all to local database<br>4. User checks offline data list<br>5. User enables internet<br>6. System syncs all pending scans |
+
+| **Input** | **Expected Output** | **Actual Output** | **Pass/Fail** |
+|-----------|-------------------|------------------|---------------|
+| Network: **Offline**<br><br>Scans:<br>1. Healthy leaf<br>2. Sigatoka disease<br>3. Panama disease | All 3 scans processed offline<br>All saved to SQLite<br>Images stored locally<br>All scans synced to Firebase when online<br>Plant documents updated<br>Sync status: "All synced" | All 3 scans processed<br>3 SQLite records created<br>Images in permanent storage<br>Successfully synced when online<br>disease_detections collection updated<br>Plant health status updated | Pass |
+
+---
+
+## Table 16: Test Case Disease Scanner - Offline Image Persistence
+
+| **Test Case** | Disease Scanner - Offline Image Persistence |
+|---------------|---------------------------------------------|
+| **Test Case Priority** | High |
+| **Test Case Description** | User captures image offline, verifies image persists after app restart and after going online. |
+| **Steps** | 1. User disables internet<br>2. User captures leaf image<br>3. User closes app completely<br>4. User reopens app (still offline)<br>5. User verifies scan exists<br>6. User enables internet<br>7. User verifies image still visible after sync |
+
+| **Input** | **Expected Output** | **Actual Output** | **Pass/Fail** |
+|-----------|-------------------|------------------|---------------|
+| Network: **Offline**<br><br>Image: Black Sigatoka leaf<br><br>Actions:<br>- Scan<br>- Close app<br>- Reopen<br>- Go online | Image persists in app storage<br>Scan data remains in SQLite<br>Image displays after restart<br>Image remains after sync<br>Firebase storage contains uploaded image | Image stored in /disease_scans/<br>SQLite data retained<br>Image displayed after restart<br>Image persisted after sync<br>Firebase storage URL valid | Pass |
+
+---
+
+## Table 17: Test Case Disease Scanner - Camera Permission
 
 | **Test Case** | Disease Scanner - Camera Access |
 |---------------|-------------------------------|
@@ -213,7 +255,7 @@
 
 ---
 
-## Table 15: Test Case QR Code Scanner - Valid Plant QR Code
+## Table 18: Test Case QR Code Scanner - Valid Plant QR Code
 
 | **Test Case** | QR Code Scanner |
 |---------------|----------------|
@@ -227,7 +269,7 @@
 
 ---
 
-## Table 16: Test Case QR Code Scanner - Invalid QR Code
+## Table 19: Test Case QR Code Scanner - Invalid QR Code
 
 | **Test Case** | QR Code Scanner |
 |---------------|----------------|
@@ -241,7 +283,7 @@
 
 ---
 
-## Table 17: Test Case Weekly Report - Generate Report
+## Table 20: Test Case Weekly Report - Generate Report
 
 | **Test Case** | Add Plant to Garden |
 |---------------|---------------------|
@@ -255,7 +297,7 @@
 
 ---
 
-## Table 17: Test Case Weekly Report - Generate Report
+## Table 20: Test Case Weekly Report - Generate Report
 
 | **Test Case** | Generate Weekly Report |
 |---------------|----------------------|
@@ -269,7 +311,7 @@
 
 ---
 
-## Table 18: Test Case Weekly Report - Empty Report
+## Table 21: Test Case Weekly Report - Empty Report
 
 | **Test Case** | Generate Weekly Report |
 |---------------|----------------------|
@@ -287,10 +329,10 @@
 
 | **Priority** | **Total Tests** | **Passed** | **Failed** | **Success Rate** |
 |--------------|----------------|-----------|-----------|-----------------|
-| High | 10 | 10 | 0 | 100% |
+| High | 13 | 13 | 0 | 100% |
 | Medium | 7 | 7 | 0 | 100% |
 | Low | 1 | 1 | 0 | 100% |
-| **Total** | **18** | **18** | **0** | **100%** |
+| **Total** | **21** | **21** | **0** | **100%** |
 
 ---
 
@@ -305,9 +347,10 @@ Based on the use case diagram, the following use cases are covered:
 5. ✅ **View Field Map (My Garden)** - Table 8 (1 test case)
 6. ✅ **Add New Plant** - Table 9 (1 test case)
 7. ✅ **View & Save Plant QR Code** - Table 10 (1 test case)
-8. ✅ **Disease Scanner** - Tables 11-14 (4 test cases)
-9. ✅ **QR Code Scanner** - Tables 15-16 (2 test cases)
-10. ✅ **Generate Weekly Report** - Tables 17-18 (2 test cases)
+8. ✅ **Disease Scanner** - Tables 11-17 (7 test cases)
+   - Including: Healthy leaf, Black Sigatoka, Invalid image, Camera permission, **Offline mode capture**, **Offline multiple scans**, **Offline image persistence**
+9. ✅ **QR Code Scanner** - Tables 18-19 (2 test cases)
+10. ✅ **Generate Weekly Report** - Tables 20-21 (2 test cases)
 
 ---
 

@@ -1,0 +1,161 @@
+@startuml Spot B-Leaf Class Diagram
+
+left to right direction
+
+class WeatherData {
+skinparam linetype polyline
+  +temperature: float
+  +humidity: int
+  +rainfall: int
+  +airHumidity: int
+  +lastUpdate: DateTime
+  +currentDateTime()
+  +getWeatherData()
+
+}
+
+package "Core Domain Classes" {
+  class User {
+    +userID: string
+    +email: string
+    +username: string
+    +password: string
+    +signUp()
+    +logIn()
+    +logout()
+  }
+  class Field {
+    +fieldID: string
+    +userID: string
+    +fieldName: string
+    +location: string
+    +size: float
+    +createField()
+    +deleteField()
+    +updateField()
+  }
+  class Plant {
+    +plantID: string
+    +fieldID: string
+    +plantName: string
+    +plantDate: DateTime
+    +location: string
+    +section: string
+    +row: string
+    +status: string
+    +lastDiseaseType: string
+    +lastDiseaseConfidence: float
+    +lastDiseaseCheck: DateTime
+    +imageUrl: string
+    +qrCodeId: string
+    +lastSyncedAt: DateTime
+    +pendingChanges: boolean
+    +addPlant()
+    +updatePlant()
+    +generateQRCode()
+  }
+  class WeeklyReport {
+    +reportID: string
+    +userID: string
+    +startDate: DateTime
+    +endDate: DateTime
+    +totalScans: int
+    +healthyCount: int
+    +diseasedCount: int
+    +diseaseDistribution: object
+    +generateReport()
+    +viewReport()
+    +exportReport()
+  }
+}
+
+package "Scanning & Detection" {
+  class Scan {
+    +scanID: string
+    +plantID: string
+    +userID: string
+    +imagePath: string
+    +localImagePath: string
+    +timestamp: DateTime
+    +isSynced: boolean
+    +syncedAt: DateTime
+    +savedOffline: boolean
+  }
+  class DiseaseScanner {
+    +diseaseType: string
+    +confidence: float
+    +severity: string
+    +recommendations: string
+    +notes: string
+    +captureImage()
+    +analyzeImage()
+    +saveResults()
+  }
+  class QRCodeScanner {
+    +selectImage()
+    +scanQRCode()
+  }
+  Scan <|-- DiseaseScanner
+  Scan <|-- QRCodeScanner
+  class DiseaseDetectionModel {
+    +modelPath: string
+    +labels: string[]
+    +interpreter: Interpreter
+    +loadModel()
+    +preprocessImage()
+    +runInference()
+    +getTopPrediction()
+  }
+  class TreatmentPlan {
+    +treatmentID: string
+    +diseaseType: string
+    +description: string
+    +symptoms: string[]
+    +treatmentSteps: string[]
+    +preventionTips: string[]
+    +severity: string
+    +getTreatment()
+    +addNotes()
+    +saveNotes()
+  }
+}
+}
+
+' === Relationships ===
+
+User "1" -right- "*" Field : owns
+User "1" -down- "*" DiseaseScanner : performs disease scan
+User "1" -down- "*" QRCodeScanner : performs QR scan
+User "1" -down- "*" WeeklyReport : generates
+User "1" -down- "*" WeatherData : accesses weather
+
+Field "1" -down- "*" Plant : contains
+Plant "1" -down- "*" DiseaseScanner : scanned for disease
+Plant "1" -down- "*" QRCodeScanner : scanned for QR
+
+
+
+QRCodeScanner "1" --> "1" DiseaseScanner : triggers scan
+
+Plant "1" -- "*" TreatmentPlan : receives
+
+User "1" -right- "0..*" Field : owns
+User "1" -down- "0..*" DiseaseScanner : performs disease scan
+User "1" -down- "0..*" QRCodeScanner : performs QR scan
+User "1" -down- "0..*" WeeklyReport : generates
+User "1" o-- "0..*" Field : owns
+User "1" o-- "0..*" WeeklyReport : generates
+User "1" -- "0..*" DiseaseScanner : performs disease scan
+User "1" -- "0..*" QRCodeScanner : performs QR scan
+Plant "1" -down- "0..*" QRCodeScanner : scanned for QR
+Plant "1" -- "0..*" TreatmentPlan : receives
+
+DiseaseScanner "0..*" -right- "1" DiseaseDetectionModel : uses
+DiseaseScanner "0..*" -right- "1" TreatmentPlan : recommends
+
+WeeklyReport "1" -down- "0..*" DiseaseScanner : aggregates
+WeeklyReport "1" -down- "0..*" QRCodeScanner : aggregates
+WeeklyReport "1" -down- "0..*" Plant : summarizes
+
+QRCodeScanner "1" --> "1" DiseaseScanner : triggers scan
+@enduml
