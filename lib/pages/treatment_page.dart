@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -399,6 +400,70 @@ class _TreatmentPageState extends State<TreatmentPage> {
               ],
             ),
             const SizedBox(height: 20),
+            
+                    // More Information Link Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blue[200]!,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[700],
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Need more information?',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue[900],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final Uri url = Uri.parse(
+                                      'https://www.doa.gov.my/doa/resources/aktiviti_sumber/sumber_awam/penerbitan/pakej_teknologi/buah/pt_pisang_2009.pdf',
+                                    );
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Text(
+                                    'Click here for complete banana cultivation guide (PDF)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.blue[700],
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.blue[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.open_in_new,
+                            color: Colors.blue[400],
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),

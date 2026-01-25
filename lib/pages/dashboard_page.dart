@@ -11,10 +11,8 @@ import '../services/weather_service.dart';
 import '../services/location_service.dart';
 import 'settings_page.dart';
 
-
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
-
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -25,14 +23,14 @@ class _DashboardPageState extends State<DashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final WeatherService _weatherService = WeatherService();
   final LocationService _locationService = LocationService();
-  
+
   StreamSubscription<QuerySnapshot>? _plantsSubscription;
-  
+
   // Statistics from Firestore
   int totalPlants = 0;
   int healthyPlants = 0;
   int diseasedPlants = 0;
-  
+
   // Weather data
   Map<String, dynamic>? currentWeather;
   List<Map<String, dynamic>>? forecast;
@@ -66,43 +64,43 @@ class _DashboardPageState extends State<DashboardPage> {
         .where('userId', isEqualTo: user.uid)
         .snapshots()
         .listen((snapshot) {
-      setState(() {
-        // Reset counts
-        totalPlants = 0;
-        healthyPlants = 0;
-        diseasedPlants = 0;
+          setState(() {
+            // Reset counts
+            totalPlants = 0;
+            healthyPlants = 0;
+            diseasedPlants = 0;
 
-        // Count plants by status
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final statusList = data['status'] as List<dynamic>?;
-          
-          totalPlants++;
-          
-          if (statusList != null && statusList.isNotEmpty) {
-            final statusStr = statusList[0].toString().toLowerCase();
-            if (statusStr == 'diseased' || statusStr == 'warning') {
-              // Count both diseased and warning (Low/Medium Risk) as diseased
-              diseasedPlants++;
-            } else if (statusStr == 'healthy') {
-              healthyPlants++;
-            } else {
-              // Unknown status counts as healthy
-              healthyPlants++;
+            // Count plants by status
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              final statusList = data['status'] as List<dynamic>?;
+
+              totalPlants++;
+
+              if (statusList != null && statusList.isNotEmpty) {
+                final statusStr = statusList[0].toString().toLowerCase();
+                if (statusStr == 'diseased' || statusStr == 'warning') {
+                  // Count both diseased and warning (Low/Medium Risk) as diseased
+                  diseasedPlants++;
+                } else if (statusStr == 'healthy') {
+                  healthyPlants++;
+                } else {
+                  // Unknown status counts as healthy
+                  healthyPlants++;
+                }
+              } else {
+                // If no status specified, count as healthy
+                healthyPlants++;
+              }
             }
-          } else {
-            // If no status specified, count as healthy
-            healthyPlants++;
-          }
-        }
-      });
-    });
+          });
+        });
   }
 
   // Load weather data from API - optimized with parallel requests
   Future<void> _loadWeatherData() async {
     if (!mounted) return;
-    
+
     setState(() {
       isLoadingWeather = true;
       locationError = null;
@@ -112,12 +110,13 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       // Get current location
       final position = await _locationService.getCurrentLocation();
-      
+
       if (position == null) {
         // Location failed, show error
         if (!mounted) return;
         setState(() {
-          locationError = 'Unable to get your location. Check location permissions.';
+          locationError =
+              'Unable to get your location. Check location permissions.';
           isLoadingWeather = false;
         });
         return;
@@ -127,7 +126,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
       // Fetch all weather data in parallel for faster loading
       final results = await Future.wait([
-        _weatherService.getCurrentWeather(position.latitude, position.longitude),
+        _weatherService.getCurrentWeather(
+          position.latitude,
+          position.longitude,
+        ),
         _weatherService.getForecast(position.latitude, position.longitude),
         _weatherService.getUVIndex(position.latitude, position.longitude),
       ]);
@@ -244,7 +246,12 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             // Header Section
             Container(
-              padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.of(context).padding.top + 10,
+                20,
+                20,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -289,13 +296,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            icon: const Icon(
+                              Icons.help_outline,
+                              color: Colors.white,
+                            ),
                             onPressed: () {
                               UserGuideDialog.show(context);
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.settings, color: Colors.white),
+                            icon: const Icon(
+                              Icons.settings,
+                              color: Colors.white,
+                            ),
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -395,12 +408,19 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(height: 12),
             const Text(
               'Unable to load weather',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Please enable location services in your device settings',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 13,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -414,7 +434,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.blue[600],
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -427,7 +450,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.9),
                     foregroundColor: Colors.blue[600],
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
                 ),
               ],
@@ -435,7 +461,11 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(height: 12),
             const Text(
               'OR',
-              style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -445,7 +475,10 @@ class _DashboardPageState extends State<DashboardPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[600],
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -485,7 +518,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     Row(
                       children: [
                         Icon(
-                          isUsingDefaultLocation ? Icons.location_city : Icons.location_on,
+                          isUsingDefaultLocation
+                              ? Icons.location_city
+                              : Icons.location_on,
                           color: Colors.white.withValues(alpha: 0.9),
                           size: 14,
                         ),
@@ -537,7 +572,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     Text(
                       currentWeather!['description'].toString().toUpperCase(),
                       style: TextStyle(
@@ -573,7 +607,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Weather details grid
           Container(
             padding: const EdgeInsets.all(16),
@@ -586,25 +620,49 @@ class _DashboardPageState extends State<DashboardPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildWeatherDetail(Icons.water_drop, '${currentWeather!['humidity']}%', 'Humidity'),
-                    _buildWeatherDetail(Icons.air, '${currentWeather!['windSpeed'].toStringAsFixed(1)} m/s', 'Wind'),
+                    _buildWeatherDetail(
+                      Icons.water_drop,
+                      '${currentWeather!['humidity']}%',
+                      'Humidity',
+                    ),
+                    _buildWeatherDetail(
+                      Icons.air,
+                      '${currentWeather!['windSpeed'].toStringAsFixed(1)} m/s',
+                      'Wind',
+                    ),
                     if (uvIndex != null)
-                      _buildWeatherDetail(Icons.wb_sunny, uvIndex!.toStringAsFixed(1), 'UV Index'),
+                      _buildWeatherDetail(
+                        Icons.wb_sunny,
+                        uvIndex!.toStringAsFixed(1),
+                        'UV Index',
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildWeatherDetail(Icons.umbrella, '${currentWeather!['rain'].toStringAsFixed(1)} mm', 'Rain'),
-                    _buildWeatherDetail(Icons.compress, '${currentWeather!['pressure']} hPa', 'Pressure'),
-                    _buildWeatherDetail(Icons.cloud, '${currentWeather!['cloudiness']}%', 'Clouds'),
+                    _buildWeatherDetail(
+                      Icons.umbrella,
+                      '${currentWeather!['rain'].toStringAsFixed(1)} mm',
+                      'Rain',
+                    ),
+                    _buildWeatherDetail(
+                      Icons.compress,
+                      '${currentWeather!['pressure']} hPa',
+                      'Pressure',
+                    ),
+                    _buildWeatherDetail(
+                      Icons.cloud,
+                      '${currentWeather!['cloudiness']}%',
+                      'Clouds',
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          
+
           // Agricultural recommendation
           if (weatherRecommendation != null) ...[
             const SizedBox(height: 16),
@@ -617,7 +675,11 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lightbulb_outline, color: Colors.white, size: 20),
+                  const Icon(
+                    Icons.lightbulb_outline,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -633,7 +695,7 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
           ],
-          
+
           // 3-day forecast
           if (forecast != null && forecast!.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -648,9 +710,10 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: forecast!.take(3).map((day) {
-                return _buildForecastDay(day);
-              }).toList(),
+              children:
+                  forecast!.take(3).map((day) {
+                    return _buildForecastDay(day);
+                  }).toList(),
             ),
           ],
         ],
@@ -682,7 +745,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildForecastDay(Map<String, dynamic> day) {
     final date = day['date'] as DateTime;
     final dayName = _getDayName(date.weekday);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
@@ -759,6 +822,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Row(
       children: [
         Expanded(
+          flex: 1,
           child: _buildMetricCard(
             icon: Icons.eco,
             gradient: const LinearGradient(
@@ -770,11 +834,12 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
             value: totalPlants.toString(),
-            label: 'Total Plants',
+            label: 'Total\nPlants',
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
+          flex: 1,
           child: _buildMetricCard(
             icon: Icons.check_circle,
             gradient: const LinearGradient(
@@ -791,6 +856,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         const SizedBox(width: 12),
         Expanded(
+          flex: 1,
           child: _buildMetricCard(
             icon: Icons.warning,
             gradient: const LinearGradient(
@@ -829,6 +895,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -840,9 +907,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 12),
           ShaderMask(
-            shaderCallback: (bounds) => gradient.createShader(
-              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-            ),
+            shaderCallback:
+                (bounds) => gradient.createShader(
+                  Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                ),
             child: Text(
               value,
               style: const TextStyle(
@@ -853,13 +921,15 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
+          SizedBox(
+            height: 32,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -885,10 +955,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           const Text(
             'Health Distribution',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 24),
           Center(
@@ -917,7 +984,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
                 'Healthy',
-                totalPlants > 0 
+                totalPlants > 0
                     ? '${((healthyPlants / totalPlants) * 100).toStringAsFixed(0)}%'
                     : '0%',
               ),
@@ -959,24 +1026,17 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             Text(
               percentage,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
       ],
     );
   }
-
 }
 
 // Custom Painter for Donut Chart
@@ -997,16 +1057,17 @@ class DonutChartPainter extends CustomPainter {
     final diseasedAngle = (diseased / total) * 2 * math.pi;
 
     // Draw healthy segment (green gradient)
-    final healthyPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [
-          Color.fromARGB(255, 17, 95, 17),
-          Color.fromARGB(255, 104, 172, 104),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+    final healthyPaint =
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [
+              Color.fromARGB(255, 17, 95, 17),
+              Color.fromARGB(255, 104, 172, 104),
+            ],
+          ).createShader(Rect.fromCircle(center: center, radius: radius))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
@@ -1017,16 +1078,17 @@ class DonutChartPainter extends CustomPainter {
     );
 
     // Draw diseased segment (red gradient)
-    final diseasedPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [
-          Color.fromARGB(255, 202, 57, 57),
-          Color.fromARGB(255, 242, 154, 154),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+    final diseasedPaint =
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [
+              Color.fromARGB(255, 202, 57, 57),
+              Color.fromARGB(255, 242, 154, 154),
+            ],
+          ).createShader(Rect.fromCircle(center: center, radius: radius))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
@@ -1037,11 +1099,12 @@ class DonutChartPainter extends CustomPainter {
     );
 
     // Draw light gray segment (gap filler)
-    final gapPaint = Paint()
-      ..color = Colors.grey[200]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+    final gapPaint =
+        Paint()
+          ..color = Colors.grey[200]!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
