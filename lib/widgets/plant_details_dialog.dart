@@ -948,6 +948,10 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             title: Row(
               children: [
                 Icon(
@@ -956,7 +960,9 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                   size: 28,
                 ),
                 const SizedBox(width: 12),
-                const Text('Remove Plant?'),
+                const Flexible(
+                  child: Text('Remove Plant?', overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
             content: Column(
@@ -1088,17 +1094,24 @@ class _PlantDetailsDialogState extends State<PlantDetailsDialog> {
                       color: Colors.green,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 48),
-                        SizedBox(height: 16),
-                        Text(
-                          'Plant removed successfully',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Flexible(
+                          child: Text(
+                            'Plant removed successfully',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],

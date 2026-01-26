@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../auth.dart';
+import '../services/disease_recommendations.dart';
 
 class WeeklyReportPage extends StatefulWidget {
   final Map<String, dynamic> plantData;
@@ -18,8 +19,10 @@ class WeeklyReportPage extends StatefulWidget {
 
 class _WeeklyReportPageState extends State<WeeklyReportPage> {
   List<Map<String, dynamic>> _weeklyActivities = [];
+  List<String> _detectedDiseases = []; // Track all diseases detected this week
   bool _isLoading = true;
-  int _weekOffset = 0; // 0 = current week, -1 = last week, -2 = 2 weeks ago, etc.
+  int _weekOffset =
+      0; // 0 = current week, -1 = last week, -2 = 2 weeks ago, etc.
 
   @override
   void initState() {
@@ -47,35 +50,41 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
 
     try {
       final startOfWeek = _selectedWeekStart;
-      
+
       // Reload fresh plant data from Firestore to get latest dailyNotes
-      final plantDoc = await FirebaseFirestore.instance
-          .collection('plant')
-          .doc(widget.documentId)
-          .get();
-      
+      final plantDoc =
+          await FirebaseFirestore.instance
+              .collection('plant')
+              .doc(widget.documentId)
+              .get();
+
       final plantData = plantDoc.data() ?? {};
-      
+
       // Get ALL disease detections for this plant (avoid index requirement)
-      final detections = await FirebaseFirestore.instance
-          .collection('disease_detections')
-          .where('plantId', isEqualTo: widget.documentId)
-          .get();
-      
+      final detections =
+          await FirebaseFirestore.instance
+              .collection('disease_detections')
+              .where('plantId', isEqualTo: widget.documentId)
+              .get();
+
       debugPrint('=== WEEKLY REPORT DEBUG ===');
       debugPrint('Plant document ID: ${widget.documentId}');
       debugPrint('Start of week: $startOfWeek');
       debugPrint('Found ${detections.docs.length} total disease detections');
-      
+
       // Filter detections to only this week
-      final weekDetections = detections.docs.where((doc) {
-        final detectedAt = (doc.data()['detectedAt'] as Timestamp?)?.toDate();
-        if (detectedAt == null) return false;
-        return detectedAt.isAfter(startOfWeek.subtract(const Duration(days: 1)));
-      }).toList();
-      
+      final weekDetections =
+          detections.docs.where((doc) {
+            final detectedAt =
+                (doc.data()['detectedAt'] as Timestamp?)?.toDate();
+            if (detectedAt == null) return false;
+            return detectedAt.isAfter(
+              startOfWeek.subtract(const Duration(days: 1)),
+            );
+          }).toList();
+
       debugPrint('Found ${weekDetections.length} detections for this week');
-      
+
       // Log each detection
       for (var doc in weekDetections) {
         final data = doc.data();
@@ -83,61 +92,88 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         debugPrint('  - Detection: ${data['diseaseType']} at $detectedAt');
         debugPrint('    Full detection data: $data');
       }
-      
+
       // Get daily notes from fresh plant data
       final dailyNotes = plantData['dailyNotes'] as Map<String, dynamic>? ?? {};
       debugPrint('Daily notes: $dailyNotes');
-      
+
       // Create activities for each day of the week
       final activities = <Map<String, dynamic>>[];
-      final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      
+      final daysOfWeek = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+
       for (int i = 0; i < 7; i++) {
         final date = startOfWeek.add(Duration(days: i));
-        final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        final dateKey =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
         final dayName = daysOfWeek[date.weekday - 1];
-        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
         final dateLabel = '$dayName, ${monthNames[date.month - 1]} ${date.day}';
-        
+
         debugPrint('Processing day: $dateLabel (key: $dateKey)');
-        
+
         // Find disease detection for this day
-        final dayDetections = weekDetections.where((doc) {
-          final detectedAt = (doc.data()['detectedAt'] as Timestamp?)?.toDate();
-          if (detectedAt == null) return false;
-          return detectedAt.year == date.year &&
-                 detectedAt.month == date.month &&
-                 detectedAt.day == date.day;
-        }).toList();
-        
+        final dayDetections =
+            weekDetections.where((doc) {
+              final detectedAt =
+                  (doc.data()['detectedAt'] as Timestamp?)?.toDate();
+              if (detectedAt == null) return false;
+              return detectedAt.year == date.year &&
+                  detectedAt.month == date.month &&
+                  detectedAt.day == date.day;
+            }).toList();
+
         debugPrint('  Detections found: ${dayDetections.length}');
-        
+
         // Log detection data for this day
         if (dayDetections.isNotEmpty) {
           for (var detection in dayDetections) {
             final data = detection.data();
-            debugPrint('    Detection data: imageUrl=${data['imageUrl']}, diseaseType=${data['diseaseType']}, severity=${data['severity']}');
+            debugPrint(
+              '    Detection data: imageUrl=${data['imageUrl']}, diseaseType=${data['diseaseType']}, severity=${data['severity']}',
+            );
           }
         }
-        
+
         // Get notes for this day
         final notes = dailyNotes[dateKey] as String?;
         debugPrint('  Notes: $notes');
-        
+
         // Always add an entry for this day
-        final detection = dayDetections.isNotEmpty ? dayDetections.first.data() : null;
+        final detection =
+            dayDetections.isNotEmpty ? dayDetections.first.data() : null;
         final diseaseType = detection?['diseaseType'] as String?;
         final severity = detection?['severity'] as String?;
         final imageUrl = detection?['imageUrl'] as String?;
-        
+
         debugPrint('  Disease Type: $diseaseType');
         debugPrint('  Severity: $severity');
         debugPrint('  Image URL: $imageUrl');
-        
+
         String status = 'No Record';
         Color statusColor = Colors.grey;
         String description = 'No record on this day';
-        
+
         if (diseaseType != null) {
           // Add disease scan info with current condition
           if (diseaseType.toLowerCase().contains('healthy')) {
@@ -147,18 +183,20 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           } else if (severity == 'High Risk') {
             status = 'Disease';
             statusColor = Colors.red;
-            description = 'Disease Scan: $diseaseType detected (High Risk). Immediate attention required.';
+            description =
+                'Disease Scan: $diseaseType detected (High Risk). Immediate attention required.';
           } else if (severity == 'Medium Risk' || severity == 'Low Risk') {
             status = 'Monitoring';
             statusColor = Colors.orange;
-            description = 'Disease Scan: $diseaseType detected ($severity). Monitor closely.';
+            description =
+                'Disease Scan: $diseaseType detected ($severity). Monitor closely.';
           } else {
             status = 'Disease';
             statusColor = Colors.red;
             description = 'Disease Scan: $diseaseType detected.';
           }
         }
-        
+
         // Add notes if available - shown prominently
         if (notes != null && notes.isNotEmpty) {
           if (diseaseType != null) {
@@ -169,34 +207,65 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             statusColor = Colors.blue;
           }
         }
-        
+
         activities.add({
           'date': dateLabel,
           'description': description,
           'status': status,
           'color': statusColor,
           'imageUrl': imageUrl,
+          'diseaseType': diseaseType, // Store disease type for recommendations
         });
       }
-      
+
+      // Extract unique disease types from activities
+      final diseases =
+          activities
+              .where((a) => a['diseaseType'] != null)
+              .map((a) => a['diseaseType'] as String)
+              .toSet()
+              .toList();
+
       setState(() {
         _weeklyActivities = activities;
+        _detectedDiseases = diseases;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading weekly activities: $e');
-      
+
       // Even on error, show the 7 days with "No record"
       final startOfWeek = _selectedWeekStart;
-      final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
+      final daysOfWeek = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+      final monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
       final fallbackActivities = <Map<String, dynamic>>[];
       for (int i = 0; i < 7; i++) {
         final date = startOfWeek.add(Duration(days: i));
         final dayName = daysOfWeek[date.weekday - 1];
         final dateLabel = '$dayName, ${monthNames[date.month - 1]} ${date.day}';
-        
+
         fallbackActivities.add({
           'date': dateLabel,
           'description': 'No record on this day',
@@ -204,7 +273,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           'color': Colors.grey,
         });
       }
-      
+
       setState(() {
         _weeklyActivities = fallbackActivities;
         _isLoading = false;
@@ -215,50 +284,64 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   String _getWeekRange() {
     final startOfWeek = _selectedWeekStart;
     final endOfWeek = startOfWeek.add(const Duration(days: 6));
-    
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
     return '${months[startOfWeek.month - 1]} ${startOfWeek.day}-${endOfWeek.day}, ${endOfWeek.year}';
   }
 
   Future<void> _saveReport(BuildContext context) async {
     final auth = Auth();
     final user = auth.currentUser;
-    
+
     if (user == null) {
       if (context.mounted) {
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Please sign in to save reports',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.warning, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'Please sign in to save reports',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
@@ -273,15 +356,16 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
       final section = widget.plantData['section']?.toString() ?? 'N/A';
       final row = widget.plantData['row']?.toString() ?? 'N/A';
-      final fieldName = widget.plantData['field_name'] as String? ?? 'Unknown Field';
+      final fieldName =
+          widget.plantData['field_name'] as String? ?? 'Unknown Field';
 
       // Get the user's notes from plant data
       final plantNotes = widget.plantData['notes'] as String? ?? '';
-      
+
       // Calculate healthy and disease days from activities
       int healthyDays = 0;
       int diseaseDays = 0;
-      
+
       for (var activity in _weeklyActivities) {
         final status = activity['status'] as String;
         if (status == 'Healthy') {
@@ -302,18 +386,20 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         'weekRange': _getWeekRange(),
         'healthyDays': healthyDays,
         'diseaseDays': diseaseDays,
-        'activities': _weeklyActivities.map((activity) => {
-          'date': activity['date'],
-          'description': activity['description'],
-          'status': activity['status'],
-          'imageUrl': activity['imageUrl'],
-        }).toList(),
-        'recommendations': [
-          'Continue fungicide treatment for 3 more days',
-          'Monitor daily for disease progression',
-          'Ensure proper drainage around plant base',
-          'Schedule follow-up scan in 7 days',
-        ],
+        'activities':
+            _weeklyActivities
+                .map(
+                  (activity) => {
+                    'date': activity['date'],
+                    'description': activity['description'],
+                    'status': activity['status'],
+                    'imageUrl': activity['imageUrl'],
+                  },
+                )
+                .toList(),
+        'recommendations': DiseaseRecommendations.getRecommendationsForDiseases(
+          _detectedDiseases,
+        ),
         'notes': plantNotes, // User's notes from plant details
         'additionalNotes': '', // Can be edited after report is saved
         'createdAt': Timestamp.now(),
@@ -328,41 +414,45 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'Report saved successfully!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 48),
+                        SizedBox(height: 16),
+                        Text(
+                          'Report saved successfully!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
 
         // Navigate back after showing notification
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop(); // Close notification
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pop(); // Close notification
             Navigator.pop(context); // Go back
           }
         });
@@ -372,35 +462,36 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         showDialog(
           context: context,
           barrierDismissible: true,
-          builder: (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error, color: Colors.white, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error saving report: $e',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+          builder:
+              (context) => Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error, color: Colors.white, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error saving report: $e',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
         );
         Future.delayed(const Duration(seconds: 3), () {
           if (context.mounted) {
@@ -416,7 +507,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     final plantId = widget.plantData['plant_id'] as String? ?? 'Unknown';
     final section = widget.plantData['section']?.toString() ?? 'N/A';
     final row = widget.plantData['row']?.toString() ?? 'N/A';
-    final fieldName = widget.plantData['field_name'] as String? ?? 'Unknown Field';
+    final fieldName =
+        widget.plantData['field_name'] as String? ?? 'Unknown Field';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -424,66 +516,74 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         children: [
           // Header Section
           Container(
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 20),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.of(context).padding.top + 10,
+              20,
+              20,
+            ),
             decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color.fromARGB(255, 99, 144, 83),
-                    const Color.fromARGB(255, 23, 147, 33),
-                  ],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Weekly Report',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Plant health summary',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color.fromARGB(255, 99, 144, 83),
+                  const Color.fromARGB(255, 23, 147, 33),
                 ],
               ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Weekly Report',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Plant health summary',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
 
-            // Scrollable Content
+          // Scrollable Content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -518,7 +618,11 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         // Select Week label
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                            const Icon(
+                              Icons.calendar_today,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             const Text(
                               'Select Week',
@@ -533,7 +637,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         const SizedBox(height: 12),
                         // Week navigation
                         Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF66BB6A),
                             borderRadius: BorderRadius.circular(12),
@@ -543,10 +650,17 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                             children: [
                               // Left arrow button
                               IconButton(
-                                icon: const Icon(Icons.chevron_left, color: Colors.white, size: 24),
+                                icon: const Icon(
+                                  Icons.chevron_left,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                                 onPressed: () => _changeWeek(_weekOffset - 1),
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
                                 tooltip: 'Previous week',
                               ),
                               // Week display
@@ -564,7 +678,9 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _weekOffset == 0 ? 'Current Week' : '${_weekOffset.abs()} ${_weekOffset.abs() == 1 ? 'week' : 'weeks'} ago',
+                                      _weekOffset == 0
+                                          ? 'Current Week'
+                                          : '${_weekOffset.abs()} ${_weekOffset.abs() == 1 ? 'week' : 'weeks'} ago',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.95),
                                         fontSize: 12,
@@ -578,13 +694,25 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                               IconButton(
                                 icon: Icon(
                                   Icons.chevron_right,
-                                  color: _weekOffset < 0 ? Colors.white : Colors.white.withOpacity(0.5),
+                                  color:
+                                      _weekOffset < 0
+                                          ? Colors.white
+                                          : Colors.white.withOpacity(0.5),
                                   size: 24,
                                 ),
-                                onPressed: _weekOffset < 0 ? () => _changeWeek(_weekOffset + 1) : null,
+                                onPressed:
+                                    _weekOffset < 0
+                                        ? () => _changeWeek(_weekOffset + 1)
+                                        : null,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                tooltip: _weekOffset < 0 ? 'Next week' : 'Current week',
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                tooltip:
+                                    _weekOffset < 0
+                                        ? 'Next week'
+                                        : 'Current week',
                               ),
                             ],
                           ),
@@ -601,7 +729,11 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.agriculture, color: Colors.white.withOpacity(0.8), size: 16),
+                            Icon(
+                              Icons.agriculture,
+                              color: Colors.white.withOpacity(0.8),
+                              size: 16,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               '$fieldName • Section $section • Row $row',
@@ -617,171 +749,197 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   ),
                   const SizedBox(height: 24),
 
-                    // Health Summary
-                    const Text(
-                      'Health Summary',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  // Health Summary
+                  const Text(
+                    'Health Summary',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green[100]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.green[600],
+                                size: 28,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _weeklyActivities
+                                    .where(
+                                      (activity) =>
+                                          activity['status'] == 'Healthy',
+                                    )
+                                    .length
+                                    .toString(),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Healthy Days',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green[100]!),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  color: Colors.green[600],
-                                  size: 28,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red[100]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red[600],
+                                size: 28,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _weeklyActivities
+                                    .where(
+                                      (activity) =>
+                                          activity['status'] == 'Disease' ||
+                                          activity['status'] == 'Monitoring',
+                                    )
+                                    .length
+                                    .toString(),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red[700],
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _weeklyActivities.where((activity) => activity['status'] == 'Healthy').length.toString(),
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[700],
-                                  ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Disease Days',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red[700],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Healthy Days',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.green[700],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.red[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red[100]!),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: Colors.red[600],
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _weeklyActivities.where((activity) => activity['status'] == 'Disease' || activity['status'] == 'Monitoring').length.toString(),
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Disease Days',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.red[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
-                    // Weekly Activity Log
-                    const Text(
-                      'Weekly Activity Log',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  // Weekly Activity Log
+                  const Text(
+                    'Weekly Activity Log',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(),
+                    )
+                  else
+                    ..._weeklyActivities.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final activity = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < _weeklyActivities.length - 1 ? 12 : 0,
                         ),
-                      )
-                    else
-                      ..._weeklyActivities.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final activity = entry.value;
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: index < _weeklyActivities.length - 1 ? 12 : 0),
-                          child: _buildActivityItem(
-                            activity['date'] as String,
-                            activity['description'] as String,
-                            activity['status'] as String,
-                            activity['color'] as Color,
-                            activity['imageUrl'] as String?,
-                          ),
-                        );
-                      }).toList(),
-                    const SizedBox(height: 24),
+                        child: _buildActivityItem(
+                          activity['date'] as String,
+                          activity['description'] as String,
+                          activity['status'] as String,
+                          activity['color'] as Color,
+                          activity['imageUrl'] as String?,
+                        ),
+                      );
+                    }).toList(),
+                  const SizedBox(height: 24),
 
-                    // Recommendations
-                    Row(
-                      children: [
-                        Icon(Icons.lightbulb_outline, size: 20, color: Colors.grey[700]),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Recommendations',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  // Recommendations
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 20,
+                        color: Colors.grey[700],
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Recommendations',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue[100]!),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildRecommendationItem('Continue fungicide treatment for 3 more days'),
-                          const SizedBox(height: 8),
-                          _buildRecommendationItem('Monitor daily for disease progression'),
-                          const SizedBox(height: 8),
-                          _buildRecommendationItem('Ensure proper drainage around plant base'),
-                          const SizedBox(height: 8),
-                          _buildRecommendationItem('Schedule follow-up scan in 7 days'),
-                        ],
-                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue[100]!),
                     ),
-                    const SizedBox(height: 100), // Extra space for bottom button
-                  ],
-                ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:
+                          DiseaseRecommendations.getRecommendationsForDiseases(
+                                _detectedDiseases,
+                              )
+                              .asMap()
+                              .entries
+                              .map(
+                                (entry) => Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom:
+                                        entry.key <
+                                                DiseaseRecommendations.getRecommendationsForDiseases(
+                                                      _detectedDiseases,
+                                                    ).length -
+                                                    1
+                                            ? 8
+                                            : 0,
+                                  ),
+                                  child: _buildRecommendationItem(entry.value),
+                                ),
+                              )
+                              .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 100), // Extra space for bottom button
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -802,10 +960,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
               icon: const Icon(Icons.save, size: 22),
               label: const Text(
                 'Save Report',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[600],
@@ -823,7 +978,13 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     );
   }
 
-  Widget _buildActivityItem(String date, String description, String status, Color statusColor, String? imageUrl) {
+  Widget _buildActivityItem(
+    String date,
+    String description,
+    String status,
+    Color statusColor,
+    String? imageUrl,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -854,7 +1015,10 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
@@ -885,58 +1049,81 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
               onTap: () {
                 showDialog(
                   context: context,
-                  builder: (context) => Dialog(
-                    backgroundColor: Colors.black,
-                    insetPadding: EdgeInsets.zero,
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: InteractiveViewer(
-                            minScale: 0.5,
-                            maxScale: 4.0,
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: Colors.white,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.broken_image, size: 64, color: Colors.grey[400]),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Failed to load image',
-                                        style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                  builder:
+                      (context) => Dialog(
+                        backgroundColor: Colors.black,
+                        insetPadding: EdgeInsets.zero,
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: InteractiveViewer(
+                                minScale: 0.5,
+                                maxScale: 4.0,
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (
+                                    context,
+                                    child,
+                                    loadingProgress,
+                                  ) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            loadingProgress
+                                                        .expectedTotalBytes !=
+                                                    null
+                                                ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                                : null,
+                                        color: Colors.white,
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.broken_image,
+                                            size: 64,
+                                            color: Colors.grey[400],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Failed to load image',
+                                            style: TextStyle(
+                                              color: Colors.grey[400],
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
-                          ),
+                            Positioned(
+                              top: 40,
+                              right: 20,
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                          ],
                         ),
-                        Positioned(
-                          top: 40,
-                          right: 20,
-                          child: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
                 );
               },
               child: ClipRRect(
@@ -953,9 +1140,11 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       color: Colors.grey[200],
                       child: Center(
                         child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                              : null,
+                          value:
+                              loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
                         ),
                       ),
                     );
@@ -968,11 +1157,18 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                            Icon(
+                              Icons.broken_image,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               'Failed to load image',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -1005,10 +1201,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              color: Colors.blue[900],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.blue[900], fontSize: 14),
           ),
         ),
       ],

@@ -34,9 +34,7 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         child: Column(
@@ -105,7 +103,11 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -132,8 +134,12 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
                       controller: _notesController,
                       maxLines: 12,
                       decoration: InputDecoration(
-                        hintText: 'Enter your notes here...\n\nExamples:\n• Treatment dates and results\n• Product names and dosages\n• Personal observations\n• Reminder for next application',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                        hintText:
+                            'Enter your notes here...\n\nExamples:\n• Treatment dates and results\n• Product names and dosages\n• Personal observations\n• Reminder for next application',
+                        hintStyle: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 13,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -192,38 +198,46 @@ class _TreatmentNotesDialogState extends State<TreatmentNotesDialog> {
                         onPressed: () {
                           widget.onSave(_notesController.text);
                           Navigator.pop(context);
-                          
+
                           showDialog(
                             context: context,
                             barrierDismissible: true,
-                            builder: (context) => Center(
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.check_circle, color: Colors.white, size: 48),
-                                      SizedBox(height: 16),
-                                      Text(
-                                        'Notes saved successfully!',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                            builder:
+                                (context) => Center(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 40,
                                       ),
-                                    ],
+                                      padding: const EdgeInsets.all(24),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: Colors.white,
+                                            size: 48,
+                                          ),
+                                          SizedBox(height: 16),
+                                          Text(
+                                            'Notes saved successfully!',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
                           );
                           Future.delayed(const Duration(seconds: 2), () {
                             if (context.mounted) {
